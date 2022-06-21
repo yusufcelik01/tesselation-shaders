@@ -1,0 +1,102 @@
+# cube with duplicate vertices for each face, to have the correct vertex normals.
+# else, interpolated vertex normals cause sphere visual on cube when they span-out diagonally per vertex.
+#1
+v -1 -1  1 
+v  1 -1  1
+v  1  1  1
+v -1  1  1
+v -1 -1 -1 
+v  1 -1 -1
+v  1  1 -1
+v -1  1 -1
+#9
+v -1 -1  1 
+v  1 -1  1
+v  1  1  1
+v -1  1  1
+v -1 -1 -1 
+v  1 -1 -1
+v  1  1 -1
+v -1  1 -1
+#17
+v -1 -1  1 
+v  1 -1  1
+v  1  1  1
+v -1  1  1
+v -1 -1 -1 
+v  1 -1 -1
+v  1  1 -1
+v -1  1 -1
+
+#front and back
+vt 0 0
+vn 0 0 1
+vt 1 0
+vn 0 0 1
+vt 1 1
+vn 0 0 1
+vt 0 1
+vn 0 0 1
+vt 1 0
+vn 0 0 -1
+vt 0 0
+vn 0 0 -1
+vt 0 1
+vn 0 0 -1
+vt 1 1
+vn 0 0 -1
+
+#top and bottom
+vt 0 1 
+vn 0 -1 0
+vt 1 1 
+vn 0 -1 0
+vt 1 0 
+vn 0 1 0
+vt 0 0 
+vn 0 1 0
+vt 0 0 
+vn 0 -1 0
+vt 1 0 
+vn 0 -1 0
+vt 1 1 
+vn 0 1 0
+vt 0 1 
+vn 0 1 0
+
+#right and right
+vt 1 0 
+vn -1 0 0
+vt 0 0 
+vn 1 0 0
+vt 0 1 
+vn 1 0 0
+vt 1 1 
+vn -1 0 0
+vt 0 0 
+vn -1 0 0
+vt 1 0 
+vn 1 0 0
+vt 1 1 
+vn 1 0 0
+vt 0 1 
+vn -1 0 0
+
+# front
+f 1//1 2//2 3//3
+f 3//3 4//4 1//1
+# back
+f 8//8 7//7 5//5
+f 7//7 6//6 5//5
+# top
+f 12//12 11//11 15//15
+f 12//12 15//15 16//16
+# bottom
+f 13//13 10//10 9//9
+f 13//13 14//14 10//10
+# right
+f 23//23 18//18 22//22
+f 19//19 18//18 23//23
+# left
+f 20//20 21//21 17//17
+f 20//20 24//24 21//21
