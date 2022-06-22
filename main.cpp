@@ -724,11 +724,15 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
     {
         if(tessOuter > 1.99)
+        {
             tessOuter -= 1.0;
+            cout << "tessOuter: " << tessOuter << endl;
+        }
     }
     else if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
     {
         tessOuter += 1.0;
+        cout << "tessOuter: " << tessOuter << endl;
     }
     if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS)
     {

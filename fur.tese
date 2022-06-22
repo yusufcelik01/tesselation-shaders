@@ -81,3 +81,16 @@ vec3 triangleNormal(vec3 t0, vec3 t1, vec3 t2)
 {
     return normalize(cross(t1-t0, t2-t1));
 }
+
+
+
+
+//vec4 getHairRootCoord(int hairID, int hairCount, vec4 t0, vec4 t1, vec4 t2)
+//{
+//    if(hairID == 0)
+//    {
+//        return (t0 + t1 + t2) / 3.0;
+//    }
+//
+//
+//}

@@ -21,9 +21,20 @@ out TESC_TESE_INTERFACE
     vec3 fragWorldNor;
 } tesc_out[];
 
+bool isVisible(vec4 p);
 
 void main()
 {
+    if( !isVisible(gl_in[0].gl_Position) &&
+        !isVisible(gl_in[1].gl_Position) &&
+        !isVisible(gl_in[2].gl_Position)   )
+    {//meaning the triangle is not visible
+        gl_TessLevelOuter[0] = 0.f;
+        gl_TessLevelOuter[1] = 0.f;
+        gl_TessLevelOuter[2] = 0.f;
+        gl_TessLevelInner[0] = 0.f;
+        return;
+    }
     gl_TessLevelOuter[0] = tessOuter;
     gl_TessLevelOuter[1] = tessOuter;
     gl_TessLevelOuter[2] = tessOuter;
@@ -48,4 +59,23 @@ void main()
     //        gl_in[2].gl_Position ) / 3.f;
     //gl_out[gl_InvocationID].gl_Position = mix(gl_in[gl_InvocationID].gl_Position, mid, 0.25);
     
+}
+
+/*
+   this function takes a point in the canonical viewing volume 
+   and returns true if this point is visible by the eye
+   return false if it is not visible
+*/
+bool isVisible(vec4 p)
+{//check if the point
+    if( p.x > p.w || p.x < -p.w ||
+        p.y > p.w || p.y < -p.w ||
+        p.z > p.w || p.z < -p.w   )
+    {
+        return false;
+    }
+    else
+    {
+        return true;
+    }
 }
