@@ -1,8 +1,14 @@
 #version 460 core
 
-uniform mat4 modelingMatrix;
-uniform mat4 viewingMatrix;
-uniform mat4 projectionMatrix;
+layout (std140, binding = 0) uniform matrices
+{
+    mat4 modelingMatrix;
+    mat4 viewingMatrix;
+    mat4 projectionMatrix;
+    vec3 eyePos;
+    float tessInner;
+    float tessOuter;
+};
 
 layout(location=0) in vec3 inVertex;
 layout(location=1) in vec3 inNormal;

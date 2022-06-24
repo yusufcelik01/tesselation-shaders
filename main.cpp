@@ -21,7 +21,7 @@
 
 using namespace std;
 
-GLuint gProgram[2];
+GLuint gProgram[8];
 int gWidth, gHeight;
 
 GLint modelingMatrixLoc[2];
@@ -39,7 +39,7 @@ int activeProgramIndex = 1;
 int enableFur = 0;
 
 GLfloat tessOuter = 5;
-GLfloat tessInner = 5;
+GLfloat tessInner = 1;
 
 float cameraZoom = 90.f; //45.0f;
 int width = 1200, height = 900;
@@ -92,14 +92,23 @@ struct Face
     GLuint vIndex[3], tIndex[3], nIndex[3];
 };
 
-vector<Vertex> gVertices;
-vector<Texture> gTextures;
-vector<Normal> gNormals;
-vector<Face> gFaces;
+size_t numberOfObj = 0;
 
-GLuint gVertexAttribBuffer, gIndexBuffer;
-GLint gInVertexLoc, gInNormalLoc;
-int gVertexDataSizeInBytes, gNormalDataSizeInBytes;
+vector<Vertex> gVertices[5];
+vector<Texture> gTextures[5];
+vector<Normal> gNormals[5];
+vector<Face> gFaces[5];
+
+GLuint vao[5];
+GLuint ubo[4];
+GLsizei uboSizes[4];
+
+
+
+GLuint gVertexAttribBuffer[5], gIndexBuffer[5];
+GLint gInVertexLoc[5], gInNormalLoc[5];
+int gVertexDataSizeInBytes[5], gNormalDataSizeInBytes[5];
+
 
 bool ParseObj(const string& fileName)
 {
@@ -127,19 +136,19 @@ bool ParseObj(const string& fileName)
                     {
                         str >> tmp; // consume "vt"
                         str >> c1 >> c2;
-                        gTextures.push_back(Texture(c1, c2));
+                        gTextures[numberOfObj].push_back(Texture(c1, c2));
                     }
                     else if (curLine[1] == 'n') // normal
                     {
                         str >> tmp; // consume "vn"
                         str >> c1 >> c2 >> c3;
-                        gNormals.push_back(Normal(c1, c2, c3));
+                        gNormals[numberOfObj].push_back(Normal(c1, c2, c3));
                     }
                     else // vertex
                     {
                         str >> tmp; // consume "v"
                         str >> c1 >> c2 >> c3;
-                        gVertices.push_back(Vertex(c1, c2, c3));
+                        gVertices[numberOfObj].push_back(Vertex(c1, c2, c3));
                     }
                 }
                 else if (curLine[0] == 'f') // face
@@ -154,10 +163,10 @@ bool ParseObj(const string& fileName)
 					str >> vIndex[2]; str >> c >> c; // consume "//"
 					str >> nIndex[2]; 
 
-					assert(vIndex[0] == nIndex[0] &&
-						   vIndex[1] == nIndex[1] &&
-						   vIndex[2] == nIndex[2]); // a limitation for now
-
+//					assert(vIndex[0] == nIndex[0] &&
+//						   vIndex[1] == nIndex[1] &&
+//						   vIndex[2] == nIndex[2]); // a limitation for now
+//
 					// make indices start from 0
 					for (int c = 0; c < 3; ++c)
 					{
@@ -166,7 +175,7 @@ bool ParseObj(const string& fileName)
 						tIndex[c] -= 1;
 					}
 
-                    gFaces.push_back(Face(vIndex, tIndex, nIndex));
+                    gFaces[numberOfObj].push_back(Face(vIndex, tIndex, nIndex));
                 }
                 else
                 {
@@ -188,8 +197,9 @@ bool ParseObj(const string& fileName)
         return false;
     }
 
-	assert(gVertices.size() == gNormals.size());
+	assert(gVertices[numberOfObj].size() == gNormals[numberOfObj].size());
 
+    numberOfObj++;
     return true;
 }
 
@@ -340,7 +350,7 @@ void initShaders()
 	GLuint vs2 = createVS("vert2.glsl");
 	GLuint tcs2 = createTESC("fur.tesc");
 	GLuint tes2 = createTESE("fur.tese");
-	GLuint fs2 = createFS("frag2.glsl");
+	GLuint fs2 = createFS("fur.frag");
 
 	// Attach the shaders to the programs
 
@@ -386,7 +396,7 @@ void initShaders()
 
 	// Get the locations of the uniform variables from both programs
 
-	for (int i = 0; i < 2; ++i)
+	for (int i = 0; i < 1; ++i)
 	{
 		modelingMatrixLoc[i] = glGetUniformLocation(gProgram[i], "modelingMatrix");
 		viewingMatrixLoc[i] = glGetUniformLocation(gProgram[i], "viewingMatrix");
@@ -401,49 +411,48 @@ void initShaders()
 //{
 //}
 
-void initVBO()
+void initVBO(size_t objId)
 {
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    assert(vao > 0);
-    glBindVertexArray(vao);
-    cout << "vao = " << vao << endl;
+    glGenVertexArrays(1, &vao[objId]);
+    assert(vao[objId] > 0);
+    glBindVertexArray(vao[objId]);
+    cout << "vao = " << vao[objId] << endl;
 
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 	assert(glGetError() == GL_NONE);
 
-	glGenBuffers(1, &gVertexAttribBuffer);
-	glGenBuffers(1, &gIndexBuffer);
+	glGenBuffers(1, &gVertexAttribBuffer[objId]);
+	glGenBuffers(1, &gIndexBuffer[objId]);
 
-	assert(gVertexAttribBuffer > 0 && gIndexBuffer > 0);
+	assert(gVertexAttribBuffer[objId] > 0 && gIndexBuffer[objId] > 0);
 
-	glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer[objId]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBuffer[objId]);
 
-	gVertexDataSizeInBytes = gVertices.size() * 3 * sizeof(GLfloat);
-	gNormalDataSizeInBytes = gNormals.size() * 3 * sizeof(GLfloat);
-	int indexDataSizeInBytes = gFaces.size() * 3 * sizeof(GLuint);
-	GLfloat* vertexData = new GLfloat [gVertices.size() * 3];
-	GLfloat* normalData = new GLfloat [gNormals.size() * 3];
-	GLuint* indexData = new GLuint [gFaces.size() * 3];
+	gVertexDataSizeInBytes[objId] = gVertices[objId].size() * 3 * sizeof(GLfloat);
+	gNormalDataSizeInBytes[objId] = gNormals[objId].size() * 3 * sizeof(GLfloat);
+	int indexDataSizeInBytes = gFaces[objId].size() * 3 * sizeof(GLuint);
+	GLfloat* vertexData = new GLfloat [gVertices[objId].size() * 3];
+	GLfloat* normalData = new GLfloat [gNormals[objId].size() * 3];
+	GLuint* indexData = new GLuint [gFaces[objId].size() * 3];
 
     float minX = 1e6, maxX = -1e6;
     float minY = 1e6, maxY = -1e6;
     float minZ = 1e6, maxZ = -1e6;
 
-	for (int i = 0; i < gVertices.size(); ++i)
+	for (int i = 0; i < gVertices[objId].size(); ++i)
 	{
-		vertexData[3*i] = gVertices[i].x;
-		vertexData[3*i+1] = gVertices[i].y;
-		vertexData[3*i+2] = gVertices[i].z;
+		vertexData[3*i] = gVertices[objId][i].x;
+		vertexData[3*i+1] = gVertices[objId][i].y;
+		vertexData[3*i+2] = gVertices[objId][i].z;
 
-        minX = std::min(minX, gVertices[i].x);
-        maxX = std::max(maxX, gVertices[i].x);
-        minY = std::min(minY, gVertices[i].y);
-        maxY = std::max(maxY, gVertices[i].y);
-        minZ = std::min(minZ, gVertices[i].z);
-        maxZ = std::max(maxZ, gVertices[i].z);
+        minX = std::min(minX, gVertices[objId][i].x);
+        maxX = std::max(maxX, gVertices[objId][i].x);
+        minY = std::min(minY, gVertices[objId][i].y);
+        maxY = std::max(maxY, gVertices[objId][i].y);
+        minZ = std::min(minZ, gVertices[objId][i].z);
+        maxZ = std::max(maxZ, gVertices[objId][i].z);
 	}
 
     std::cout << "minX = " << minX << std::endl;
@@ -453,24 +462,24 @@ void initVBO()
     std::cout << "minZ = " << minZ << std::endl;
     std::cout << "maxZ = " << maxZ << std::endl;
 
-	for (int i = 0; i < gNormals.size(); ++i)
+	for (int i = 0; i < gNormals[objId].size(); ++i)
 	{
-		normalData[3*i] = gNormals[i].x;
-		normalData[3*i+1] = gNormals[i].y;
-		normalData[3*i+2] = gNormals[i].z;
+		normalData[3*i] = gNormals[objId][i].x;
+		normalData[3*i+1] = gNormals[objId][i].y;
+		normalData[3*i+2] = gNormals[objId][i].z;
 	}
 
-	for (int i = 0; i < gFaces.size(); ++i)
+	for (int i = 0; i < gFaces[objId].size(); ++i)
 	{
-		indexData[3*i] = gFaces[i].vIndex[0];
-		indexData[3*i+1] = gFaces[i].vIndex[1];
-		indexData[3*i+2] = gFaces[i].vIndex[2];
+		indexData[3*i] = gFaces[objId][i].vIndex[0];
+		indexData[3*i+1] = gFaces[objId][i].vIndex[1];
+		indexData[3*i+2] = gFaces[objId][i].vIndex[2];
 	}
 
 
-	glBufferData(GL_ARRAY_BUFFER, gVertexDataSizeInBytes + gNormalDataSizeInBytes, 0, GL_STATIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, gVertexDataSizeInBytes, vertexData);
-	glBufferSubData(GL_ARRAY_BUFFER, gVertexDataSizeInBytes, gNormalDataSizeInBytes, normalData);
+	glBufferData(GL_ARRAY_BUFFER, gVertexDataSizeInBytes[objId] + gNormalDataSizeInBytes[objId], 0, GL_STATIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, gVertexDataSizeInBytes[objId], vertexData);
+	glBufferSubData(GL_ARRAY_BUFFER, gVertexDataSizeInBytes[objId], gNormalDataSizeInBytes[objId], normalData);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexDataSizeInBytes, indexData, GL_STATIC_DRAW);
 
 	// done copying; can free now
@@ -479,50 +488,104 @@ void initVBO()
 	delete[] indexData;
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes[objId]));
 }
 
+void initUBO()
+{
+    glGenBuffers(1, &ubo[0]);
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
+
+    uboSizes[0] = sizeof(glm::mat4) * 3 + sizeof(glm::vec4);//matrices;
+    uboSizes[1] = sizeof(GLfloat)*4;//;
+
+    glBufferData(GL_UNIFORM_BUFFER, uboSizes[0] + uboSizes[1], 0, GL_DYNAMIC_COPY);
+
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo[0], 0, uboSizes[0]+uboSizes[1]);
+    //glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo[0]);
+    //glBindBufferBase(GL_UNIFORM_BUFFER, 1, ubo[0]);
+    //glBindBufferRange(GL_UNIFORM_BUFFER, 1, ubo[0], uboSizes[0], uboSizes[1]);
+}
+
+void updateUniforms()
+{
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
+
+    //matrices block
+
+    //GLuint uniformBlockIndex;
+    //GLsizei uniformBlockSize;
+    //uniformBlockIndex = glGetUniformBlockIndex(gProgram[1], "matrices");
+    //glGetActiveUniformBlockiv(gProgram[1], uniformBlockIndex,
+    //                                 GL_UNIFORM_BLOCK_DATA_SIZE,
+    //                                 &uniformBlockSize);
+
+    //cout << "uniformBlockSize " << uniformBlockSize << endl;
+    //cout << "float " << sizeof(GLfloat) << endl;
+    //cout << "uint " << sizeof(GLuint) << endl;
+    //cout << "mat4 " << sizeof(glm::mat4) << endl;
+    //cout << "vec3 " << sizeof(glm::vec3) << endl;
+    //cout << "ubosizes " << uboSizes[0] + uboSizes[1] << endl;
+
+    glBufferSubData(GL_UNIFORM_BUFFER, 0                    , sizeof(glm::mat4), glm::value_ptr(modelingMatrix));
+    glBufferSubData(GL_UNIFORM_BUFFER,     sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(viewingMatrix));
+    glBufferSubData(GL_UNIFORM_BUFFER, 2 * sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(projectionMatrix));
+    glBufferSubData(GL_UNIFORM_BUFFER, 3 * sizeof(glm::mat4), sizeof(glm::vec3), glm::value_ptr(eyePos));
+
+    //upload tesselation levels
+    glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] - 1 * sizeof(GLfloat), sizeof(GLfloat), &tessInner);
+    glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 0 * sizeof(GLfloat), sizeof(GLfloat), &tessOuter);
+
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}
 void init() 
 {
-	//ParseObj("teapot.obj");
+	ParseObj("teapot.obj");
 	//ParseObj("armadillo.obj");
 	//ParseObj("bunny.obj");
 	//ParseObj("lowres-bunny.obj");
-	ParseObj("cube.obj");
+	//ParseObj("cube.obj");
 
     glEnable(GL_DEPTH_TEST);
     initShaders();
-    initVBO();
+    initVBO(0);
+
+    initUBO();
+    updateUniforms();
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 }
 
-void drawModel()
+void drawModel(size_t objId)
 {
-	glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBuffer);
+    glBindVertexArray(vao[objId]);
+	glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer[objId]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBuffer[objId]);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes[objId]));
 
 
     if(activeProgramIndex == 1)
     {
-        glUniform1f(tessInnerLoc[1], tessInner);
-        glUniform1f(tessOuterLoc[1], tessOuter);
+        //glUniform1f(tessInnerLoc[1], tessInner);
+        //glUniform1f(tessOuterLoc[1], tessOuter);
         glPatchParameteri(GL_PATCH_VERTICES, 3);
-        //glDrawElements(GL_PATCHES, gFaces.size() * 3, GL_UNSIGNED_INT, 0);
-        glDrawElements(GL_PATCHES,  3, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_PATCHES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
+        //glDrawElements(GL_PATCHES,  3, GL_UNSIGNED_INT, 0);
     }
     else if (activeProgramIndex == 0)
     {
-        //glDrawElements(GL_TRIANGLES, gFaces.size() * 3, GL_UNSIGNED_INT, 0);
-        glDrawElements(GL_TRIANGLES,  3, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
+        //glDrawElements(GL_TRIANGLES,  3, GL_UNSIGNED_INT, 0);
     }
 }
 
 void display()
 {
+
     glClearColor(0, 0, 0, 1);
     glClearDepth(1.0f);
     glClearStencil(0);
@@ -591,16 +654,16 @@ void display()
 	glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
 
 	// Draw the scene
-    drawModel();
+    drawModel(0);
 
     activeProgramIndex = 1;
 	glUseProgram(gProgram[activeProgramIndex]);
-	glUniformMatrix4fv(projectionMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
-	glUniformMatrix4fv(viewingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(viewingMatrix));
-	glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
+	//glUniformMatrix4fv(projectionMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
+	//glUniformMatrix4fv(viewingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(viewingMatrix));
+	//glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
     if(enableFur)
     {
-        drawModel();
+        drawModel(0);
     }
 
 
@@ -744,12 +807,15 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
     if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS)
     {
         if(tessInner > 1.3)
+        {
             tessInner -= 0.4;
+            cout << "tessInner: " << tessInner << endl;
+        }
     }
     else if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS)
     {
-        
         tessInner += 0.4;
+        cout << "tessInner: " << tessInner << endl;
     }
 
 }
@@ -767,6 +833,8 @@ void mainLoop(GLFWwindow* window)
         glfwSwapBuffers(window);
         glfwPollEvents();
         //cout << "glError: " <<  glGetError() << endl;
+
+        updateUniforms();
     }
 }
 
@@ -782,7 +850,6 @@ void APIENTRY messageCallBack(GLenum source,
   fprintf( stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
            ( type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "" ),
             type, severity, message );
-  //std::cout << "AN ERROR OCCURRED" << std::endl;
 }
 
 int main(int argc, char** argv)   // Create Main Function For Bringing It All Together

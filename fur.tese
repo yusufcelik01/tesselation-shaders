@@ -1,8 +1,14 @@
 #version 460 core
 
-uniform mat4 modelingMatrix;
-uniform mat4 viewingMatrix;
-uniform mat4 projectionMatrix;
+layout (std140, binding = 0) uniform matrices
+{
+    mat4 modelingMatrix;
+    mat4 viewingMatrix;
+    mat4 projectionMatrix;
+    vec3 eyePos;
+    float tessInner;
+    float tessOuter;
+};
 
 layout ( isolines, equal_spacing, ccw) in;
 
@@ -59,7 +65,7 @@ void main()
     //
     int hairCount = int(gl_TessLevelOuter[0]);
     //int numOfSubTriangles = int(ceil(gl_TessLevelOuter[0]/3.0)+0.001);
-    int hairID = int(round(v / (1.0f/gl_TessLevelOuter[0])));
+    int hairID = int(round(v / (1.0f/gl_TessLevelOuter[0])) + 0.1);
 
     struct Vertex hairRoot = hairVertex(hairID, triangle);
 
