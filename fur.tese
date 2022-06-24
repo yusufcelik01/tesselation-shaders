@@ -58,15 +58,15 @@ void main()
 
     //
     int hairCount = int(gl_TessLevelOuter[0]);
-    int numOfSubTriangles = int(ceil(gl_TessLevelOuter[0]/3.0)+0.001);
-    int hairID = int(round(v / (1.0f/float(hairCount))));
+    //int numOfSubTriangles = int(ceil(gl_TessLevelOuter[0]/3.0)+0.001);
+    int hairID = int(round(v / (1.0f/gl_TessLevelOuter[0])));
 
     struct Vertex hairRoot = hairVertex(hairID, triangle);
 
     float hairLength = (distance(p0, p1) +
                         distance(p1, p2) +
                         distance(p2, p0) ) /3.0;
-    vec4 hairTip = hairRoot.coord + vec4(normalize(hairRoot.normal) * hairLength, 0.f);
+    vec4 hairTip = hairRoot.coord + vec4(normalize(hairRoot.normal) * hairLength * 1, 0.f);
 
 
 

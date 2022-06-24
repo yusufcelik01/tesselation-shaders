@@ -36,6 +36,7 @@ glm::mat4 viewingMatrix;
 glm::mat4 modelingMatrix;
 
 int activeProgramIndex = 1;
+int enableFur = 0;
 
 GLfloat tessOuter = 5;
 GLfloat tessInner = 5;
@@ -485,8 +486,9 @@ void init()
 {
 	//ParseObj("teapot.obj");
 	//ParseObj("armadillo.obj");
-	ParseObj("bunny.obj");
-	//ParseObj("cube.obj");
+	//ParseObj("bunny.obj");
+	//ParseObj("lowres-bunny.obj");
+	ParseObj("cube.obj");
 
     glEnable(GL_DEPTH_TEST);
     initShaders();
@@ -509,11 +511,13 @@ void drawModel()
         glUniform1f(tessInnerLoc[1], tessInner);
         glUniform1f(tessOuterLoc[1], tessOuter);
         glPatchParameteri(GL_PATCH_VERTICES, 3);
-        glDrawElements(GL_PATCHES, gFaces.size() * 3, GL_UNSIGNED_INT, 0);
+        //glDrawElements(GL_PATCHES, gFaces.size() * 3, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_PATCHES,  3, GL_UNSIGNED_INT, 0);
     }
     else if (activeProgramIndex == 0)
     {
-        glDrawElements(GL_TRIANGLES, gFaces.size() * 3, GL_UNSIGNED_INT, 0);
+        //glDrawElements(GL_TRIANGLES, gFaces.size() * 3, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES,  3, GL_UNSIGNED_INT, 0);
     }
 }
 
@@ -594,7 +598,10 @@ void display()
 	glUniformMatrix4fv(projectionMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
 	glUniformMatrix4fv(viewingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(viewingMatrix));
 	glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
-    drawModel();
+    if(enableFur)
+    {
+        drawModel();
+    }
 
 
 	angle += 0.5;
@@ -640,13 +647,13 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
     else if (key == GLFW_KEY_G && action == GLFW_PRESS)
     {
         //glShadeModel(GL_SMOOTH);
-        activeProgramIndex = 0;
+        enableFur = !enableFur;
         //std::cout << "active program 0" << std::endl;
     }
     else if (key == GLFW_KEY_P && action == GLFW_PRESS)
     {
         //glShadeModel(GL_SMOOTH);
-        activeProgramIndex = 1;
+        activeProgramIndex = !activeProgramIndex;
         //std::cout << "active program 1" << std::endl;
     }
     else if (key == GLFW_KEY_F && action == GLFW_PRESS)
