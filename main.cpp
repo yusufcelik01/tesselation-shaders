@@ -24,12 +24,12 @@ using namespace std;
 GLuint gProgram[8];
 int gWidth, gHeight;
 
-GLint modelingMatrixLoc[2];
-GLint viewingMatrixLoc[2];
-GLint projectionMatrixLoc[2];
-GLint eyePosLoc[2];
-GLint tessInnerLoc[2];
-GLint tessOuterLoc[2];
+GLint modelingMatrixLoc[8];
+GLint viewingMatrixLoc[8];
+GLint projectionMatrixLoc[8];
+GLint eyePosLoc[8];
+GLint tessInnerLoc[8];
+GLint tessOuterLoc[8];
 
 glm::mat4 projectionMatrix;
 glm::mat4 viewingMatrix;
@@ -38,7 +38,7 @@ glm::mat4 modelingMatrix;
 int activeProgramIndex = 1;
 int enableFur = 0;
 
-GLfloat tessOuter = 5;
+GLfloat tessOuter = 1;
 GLfloat tessInner = 1;
 
 float cameraZoom = 90.f; //45.0f;
@@ -285,6 +285,31 @@ GLuint createFS(const char* shaderName)
 	return fs;
 }
 
+GLuint createGS(const char* shaderName)
+{
+    string shaderSource;
+
+    string filename(shaderName);
+    if (!ReadDataFromFile(filename, shaderSource))
+    {
+        cout << "Cannot find file name: " + filename << endl;
+        exit(-1);
+    }
+
+    GLint length = shaderSource.length();
+    const GLchar* shader = (const GLchar*) shaderSource.c_str();
+
+    GLuint gs = glCreateShader(GL_GEOMETRY_SHADER);
+    glShaderSource(gs, 1, &shader, &length);
+    glCompileShader(gs);
+
+    char output[1024] = {0};
+    glGetShaderInfoLog(gs, 1024, &length, output);
+    printf("GS compile log: %s\n", output);
+
+	return gs;
+}
+
 GLuint createTESC(const char* shaderName)
 {
     string shaderSource;
@@ -334,6 +359,88 @@ GLuint createTESE(const char* shaderName)
 
 	return fs;
 }
+void initProgram(unsigned int progIndex,
+                 const char* vsFile ,
+                 const char* tcsFile,
+                 const char* tesFile,
+                 const char* gsFile ,
+                 const char* fsFile  )
+{
+    gProgram[progIndex] = glCreateProgram();
+    GLuint vs, tcs, tes, gs, fs;
+
+    cout << "Creating program: " << progIndex << endl;
+    if(vsFile == NULL)
+    {
+        fprintf(stderr, "a vertex shader must be provided\n");
+    }
+    else
+    {
+        vs = createVS(vsFile);
+        glAttachShader(gProgram[progIndex], vs);
+    }
+    if( tcsFile != NULL)
+    {
+        tcs = createTESC(tcsFile);
+        glAttachShader(gProgram[progIndex], tcs);
+    }
+    if( tesFile != NULL)
+    {
+        tes = createTESE(tesFile);
+        glAttachShader(gProgram[progIndex], tes);
+    }
+    if( gsFile != NULL)
+    {
+        gs = createGS(gsFile);
+        glAttachShader(gProgram[progIndex], gs);
+    }
+    if(fsFile == NULL)
+    {
+        fprintf(stderr, "a fragment shader must be provided\n");
+    }
+    else
+    {
+        fs = createFS(fsFile);
+        glAttachShader(gProgram[progIndex], fs);
+    }
+
+    glLinkProgram(gProgram[progIndex]);
+	GLint status;
+	glGetProgramiv(gProgram[progIndex], GL_LINK_STATUS, &status);
+
+	if (status != GL_TRUE)
+	{
+		cout << "Program link failed, programIndex: " << progIndex << endl;
+        glDeleteShader(vs);
+        glDeleteShader(fs);
+        if(tcsFile != NULL ) {glDeleteShader(tcs);}
+        if(tesFile != NULL ) {glDeleteShader(tes);}
+        if(gsFile != NULL ) {glDeleteShader(gs);}
+        
+		exit(-1);
+	}
+    else//link succesfull
+    {
+        glDetachShader(gProgram[progIndex], vs);
+        glDetachShader(gProgram[progIndex], fs);
+        if(tcsFile != NULL ) {glDetachShader(gProgram[progIndex], tcs);}
+        if(tesFile != NULL ) {glDetachShader(gProgram[progIndex], tes);}
+        if(gsFile != NULL ) {glDetachShader(gProgram[progIndex], gs);}
+        glDeleteShader(vs);
+        glDeleteShader(fs);
+        if(tcsFile != NULL ) {glDeleteShader(tcs);}
+        if(tesFile != NULL ) {glDeleteShader(tes);}
+        if(gsFile != NULL ) {glDeleteShader(gs);}
+    }
+		modelingMatrixLoc[progIndex] = glGetUniformLocation(gProgram[progIndex], "modelingMatrix");
+		viewingMatrixLoc[progIndex] = glGetUniformLocation(gProgram[progIndex], "viewingMatrix");
+		projectionMatrixLoc[progIndex] = glGetUniformLocation(gProgram[progIndex], "projectionMatrix");
+		eyePosLoc[progIndex] = glGetUniformLocation(gProgram[progIndex], "eyePos");
+		tessInnerLoc[progIndex] = glGetUniformLocation(gProgram[progIndex], "tessInner");
+		tessOuterLoc[progIndex] = glGetUniformLocation(gProgram[progIndex], "tessOuter");
+    cout << endl;
+}
+
 void initShaders()
 {
 	// Create the programs
@@ -542,14 +649,33 @@ void updateUniforms()
 }
 void init() 
 {
-	ParseObj("teapot.obj");
-	//ParseObj("armadillo.obj");
+	//ParseObj("teapot.obj");
+	ParseObj("armadillo.obj");
 	//ParseObj("bunny.obj");
 	//ParseObj("lowres-bunny.obj");
 	//ParseObj("cube.obj");
 
     glEnable(GL_DEPTH_TEST);
-    initShaders();
+    //initShaders();
+    initProgram(4,
+                "vert.glsl",
+                NULL,
+                NULL,
+                NULL,
+                "frag.glsl");
+    initProgram(1,
+                "vert2.glsl",
+                "fur.tesc",
+                "fur.tese",
+                NULL,
+                "fur.frag");
+    initProgram(0,
+                "vert2.glsl",
+                "pn-triangles.tesc",
+                "pn-triangles.tese",
+                NULL,
+                "frag2.glsl");
+                
     initVBO(0);
 
     initUBO();
@@ -568,19 +694,21 @@ void drawModel(size_t objId)
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes[objId]));
 
 
-    if(activeProgramIndex == 1)
-    {
-        //glUniform1f(tessInnerLoc[1], tessInner);
-        //glUniform1f(tessOuterLoc[1], tessOuter);
         glPatchParameteri(GL_PATCH_VERTICES, 3);
         glDrawElements(GL_PATCHES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
-        //glDrawElements(GL_PATCHES,  3, GL_UNSIGNED_INT, 0);
-    }
-    else if (activeProgramIndex == 0)
-    {
-        glDrawElements(GL_TRIANGLES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
-        //glDrawElements(GL_TRIANGLES,  3, GL_UNSIGNED_INT, 0);
-    }
+    //if(activeProgramIndex == 1)
+    //{
+    //    //glUniform1f(tessInnerLoc[1], tessInner);
+    //    //glUniform1f(tessOuterLoc[1], tessOuter);
+    //    glPatchParameteri(GL_PATCH_VERTICES, 3);
+    //    glDrawElements(GL_PATCHES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
+    //    //glDrawElements(GL_PATCHES,  3, GL_UNSIGNED_INT, 0);
+    //}
+    //else if (activeProgramIndex == 0)
+    //{
+    //    glDrawElements(GL_TRIANGLES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
+    //    //glDrawElements(GL_TRIANGLES,  3, GL_UNSIGNED_INT, 0);
+    //}
 }
 
 void display()
@@ -656,13 +784,13 @@ void display()
 	// Draw the scene
     drawModel(0);
 
-    activeProgramIndex = 1;
-	glUseProgram(gProgram[activeProgramIndex]);
-	//glUniformMatrix4fv(projectionMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
-	//glUniformMatrix4fv(viewingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(viewingMatrix));
-	//glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
     if(enableFur)
     {
+        activeProgramIndex = 1;
+        glUseProgram(gProgram[activeProgramIndex]);
+        //glUniformMatrix4fv(projectionMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
+        //glUniformMatrix4fv(viewingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(viewingMatrix));
+        //glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
         drawModel(0);
     }
 
@@ -694,7 +822,7 @@ void reshape(GLFWwindow* window, int w, int h)
 	// Use perspective projection
 	float fovyRad = (float) (cameraZoom / 180.0) * M_PI;
     float aspectRat = (float) 1.0f;
-	projectionMatrix = glm::perspective(fovyRad, aspectRat, 0.01f, 100.0f);
+	projectionMatrix = glm::perspective(fovyRad, aspectRat, 0.0001f, 100.0f);
 
     viewingMatrix = glm::lookAt(eyePos,
                                 eyePos + cameraFront,
