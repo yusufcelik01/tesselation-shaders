@@ -37,6 +37,7 @@ glm::mat4 modelingMatrix;
 
 int activeProgramIndex = 1;
 int enableFur = 0;
+int wireframeMode = 0;
 
 GLfloat tessOuter = 1;
 GLfloat tessInner = 1;
@@ -649,8 +650,8 @@ void updateUniforms()
 }
 void init() 
 {
-	//ParseObj("teapot.obj");
-	ParseObj("armadillo.obj");
+	ParseObj("teapot.obj");
+	//ParseObj("armadillo.obj");
 	//ParseObj("bunny.obj");
 	//ParseObj("lowres-bunny.obj");
 	//ParseObj("cube.obj");
@@ -681,7 +682,6 @@ void init()
     initUBO();
     updateUniforms();
 
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 }
 
 void drawModel(size_t objId)
@@ -849,7 +849,16 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
     }
     else if (key == GLFW_KEY_F && action == GLFW_PRESS)
     {
-        //glShadeModel(GL_FLAT);
+
+        if(wireframeMode)
+        {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        }
+        else
+        {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
+        wireframeMode = !wireframeMode;
     }
 
     const float cameraSpeed = 11.65f; // adjust accordingly
