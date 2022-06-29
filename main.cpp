@@ -164,10 +164,18 @@ bool ParseObj(const string& fileName)
 					str >> vIndex[2]; str >> c >> c; // consume "//"
 					str >> nIndex[2]; 
 
-//					assert(vIndex[0] == nIndex[0] &&
-//						   vIndex[1] == nIndex[1] &&
-//						   vIndex[2] == nIndex[2]); // a limitation for now
-//
+                    if(!(vIndex[0] == nIndex[0] &&
+                            vIndex[1] == nIndex[1] &&
+                            vIndex[2] == nIndex[2]))
+                    {
+                        cout << "vIndex[0] = " << vIndex[0] << "\t nIndex[0] = " << nIndex[0] << endl;
+                        cout << "vIndex[1] = " << vIndex[1] << "\t nIndex[1] = " << nIndex[1] << endl;
+                        cout << "vIndex[2] = " << vIndex[2] << "\t nIndex[2] = " << nIndex[2] << endl;
+                    }
+					assert(vIndex[0] == nIndex[0] &&
+						   vIndex[1] == nIndex[1] &&
+						   vIndex[2] == nIndex[2]); // a limitation for now
+
 					// make indices start from 0
 					for (int c = 0; c < 3; ++c)
 					{
@@ -198,6 +206,8 @@ bool ParseObj(const string& fileName)
         return false;
     }
 
+    //cout << "gVertices: " << gVertices[numberOfObj].size() << endl;
+    //cout << "gNormals: " << gNormals[numberOfObj].size() << endl;
 	assert(gVertices[numberOfObj].size() == gNormals[numberOfObj].size());
 
     numberOfObj++;
@@ -650,10 +660,12 @@ void updateUniforms()
 }
 void init() 
 {
-	ParseObj("teapot.obj");
+	//ParseObj("dragon-lowres.obj");
+	//ParseObj("teapot.obj");
+	ParseObj("suzanne.obj");
 	//ParseObj("armadillo.obj");
 	//ParseObj("bunny.obj");
-	//ParseObj("lowres-bunny.obj");
+	//ParseObj("bunny_lowres.obj");
 	//ParseObj("cube.obj");
 
     glEnable(GL_DEPTH_TEST);
@@ -933,27 +945,31 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
         if(tessOuter > 1.99)
         {
             tessOuter -= 1.0;
+            tessInner = tessOuter;
             cout << "tessOuter: " << tessOuter << endl;
+            cout << "tessInner: " << tessInner << endl;
         }
     }
     else if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
     {
         tessOuter += 1.0;
+        tessInner = tessOuter;
         cout << "tessOuter: " << tessOuter << endl;
-    }
-    if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS)
-    {
-        if(tessInner > 1.3)
-        {
-            tessInner -= 0.4;
-            cout << "tessInner: " << tessInner << endl;
-        }
-    }
-    else if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS)
-    {
-        tessInner += 0.4;
         cout << "tessInner: " << tessInner << endl;
     }
+    //if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS)
+    //{
+    //    if(tessInner > 1.3)
+    //    {
+    //        tessInner -= 0.4;
+    //        cout << "tessInner: " << tessInner << endl;
+    //    }
+    //}
+    //else if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS)
+    //{
+    //    tessInner += 0.4;
+    //    cout << "tessInner: " << tessInner << endl;
+    //}
 
 }
 

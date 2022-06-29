@@ -30,11 +30,11 @@ struct Vertex
     vec4 coord;
     vec3 normal;
 };
+
 struct Triangle 
 {
     struct Vertex vert[3];
 };
-
 
 vec3 triangleNormal(vec3 t0, vec3 t1, vec3 t2);
 struct Vertex hairVertex(int hairID, struct Triangle triangle);
@@ -121,8 +121,6 @@ vec3 triangleNormal(vec3 t0, vec3 t1, vec3 t2)
 {
     return normalize(cross(t1-t0, t2-t1));
 }
-
-
 
 
 struct Vertex getHairRootCoord(int hairID, int numberOfHairs, struct Triangle triangle)

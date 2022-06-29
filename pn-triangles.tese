@@ -97,7 +97,7 @@ void main()
                                   b210*3*w*w*u + b120*3*w*u*u + b201*3*w*w*v +
                                   b021*3*u*u*v + b102*3*w*v*v + b012*3*u*v*v +
                                   b111*6*w*u*v
-                                  ,1);
+                                  ,1.0);
 
     tese_out.fragWorldNor = n200*w*w + n020*u*u + n002*v*v + 
                             n110*w*u + n011*u*v + n101*w*v;
