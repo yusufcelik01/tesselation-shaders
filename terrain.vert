@@ -3,16 +3,29 @@
 layout(location=0) in vec3 inPoint;
 layout(location=1) in vec3 inNormal;//actually not gonna use this
 
+//layout (std140, binding = 0) uniform matrices
+//{
+//    mat4 modelingMatrix;
+//    mat4 viewingMatrix;
+//    mat4 projectionMatrix;
+//    float terrainSpan;
+//    uint vertexCount;
+//    float noiseScale;
+//};
+
 layout (std140, binding = 0) uniform matrices
 {
     mat4 modelingMatrix;
     mat4 viewingMatrix;
     mat4 projectionMatrix;
-    float terrainSpan;
-    uint vertexCount;
-    float noiseScale;
+    //float terrainSpan;
+    //uint vertexCount;
+    //float noiseScale;
 };
 
+float terrainSpan = 30;
+uint vertexCount = 1000;
+float noiseScale = 1.5;
 
 out VS_GS_INTERFACE
 {

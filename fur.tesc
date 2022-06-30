@@ -6,6 +6,10 @@ layout (std140, binding = 0) uniform matrices
     mat4 viewingMatrix;
     mat4 projectionMatrix;
     vec3 eyePos;
+};
+
+layout (std140, binding = 1) uniform tessLevels
+{
     float tessInner;
     float tessOuter;
     float levelOfDetail;
@@ -44,6 +48,11 @@ void main()
     gl_TessLevelOuter[1] = tessInner * levelOfDetail;
     gl_TessLevelOuter[2] = tessOuter;
     gl_TessLevelInner[0] = tessInner;
+
+    //gl_TessLevelOuter[0] = tessOuter;
+    //gl_TessLevelOuter[1] = 3.f;
+    //gl_TessLevelOuter[2] = 2.f;
+    //gl_TessLevelInner[0] = 2.f;
 
     //shrink triangles
     vec4 mid = ( tesc_in[0].fragWorldPos +

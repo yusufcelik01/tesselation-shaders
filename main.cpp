@@ -21,7 +21,16 @@
 
 using namespace std;
 
+
+struct ProgramParams
+{
+    GLuint progObj;
+    GLenum primitiveType;//ex. GL_POINTS
+    unsigned int patchVertices;//if primitive is GL_PATCHES
+};
+
 GLuint gProgram[8];
+
 int gWidth, gHeight;
 
 GLint modelingMatrixLoc[8];
@@ -39,9 +48,9 @@ int activeProgramIndex = 1;
 int enableFur = 0;
 int wireframeMode = 0;
 
-GLfloat tessOuter = 1;
-GLfloat tessInner = 1;
-GLfloat levelOfDetail = 1;
+GLfloat tessOuter = 1.0;
+GLfloat tessInner = 1.0;
+GLfloat levelOfDetail = 1.0;
 
 float cameraZoom = 90.f; //45.0f;
 int width = 1200, height = 900;
@@ -106,6 +115,7 @@ GLuint ubo[4];
 GLsizei uboSizes[4];
 
 //terrain params
+int terrainProgramID;
 size_t terrainVaoID = -1;
 GLuint vertexCount = 1000;
 GLfloat terrainSpan = 30;
@@ -217,8 +227,9 @@ int ParseObj(const string& fileName)
     //cout << "gNormals: " << gNormals[numberOfObj].size() << endl;
 	assert(gVertices[numberOfObj].size() == gNormals[numberOfObj].size());
 
+    int temp = numberOfObj;
     numberOfObj++;
-    return numberOfObj;
+    return temp;
 }
 
 bool ReadDataFromFile(
@@ -621,17 +632,37 @@ void initUBO()
     glGenBuffers(1, &ubo[0]);
     glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
 
-    uboSizes[0] = sizeof(glm::mat4) * 3 + sizeof(glm::vec4);//matrices;
-    uboSizes[1] = sizeof(GLfloat)*4;//;
+    //vec3 causes alignment problems so we just allocate space for 4 matrices
+    uboSizes[0] = sizeof(glm::mat4) * 4 ;//matrices
+    uboSizes[1] = sizeof(GLfloat)*8;//tessLevels
 
     glBufferData(GL_UNIFORM_BUFFER, uboSizes[0] + uboSizes[1], 0, GL_DYNAMIC_COPY);
 
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-    glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo[0], 0, uboSizes[0]+uboSizes[1]);
-    //glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo[0]);
-    //glBindBufferBase(GL_UNIFORM_BUFFER, 1, ubo[0]);
-    //glBindBufferRange(GL_UNIFORM_BUFFER, 1, ubo[0], uboSizes[0], uboSizes[1]);
+    //glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo[0], 0, uboSizes[0]+uboSizes[1]);
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo[0], 0, uboSizes[0]);
+    glBindBufferRange(GL_UNIFORM_BUFFER, 1, ubo[0], uboSizes[0], uboSizes[1]);
+
+    GLuint uniformBlockIndex;
+    GLsizei uniformBlockSize;
+    uniformBlockIndex = glGetUniformBlockIndex(gProgram[1], "matrices");
+    glGetActiveUniformBlockiv(gProgram[1], uniformBlockIndex,
+                                     GL_UNIFORM_BLOCK_DATA_SIZE,
+                                     &uniformBlockSize);
+    cout << "matrices size: " << uniformBlockSize << endl;
+
+    uniformBlockIndex = glGetUniformBlockIndex(gProgram[1], "tessLevels");
+    glGetActiveUniformBlockiv(gProgram[1], uniformBlockIndex,
+                                     GL_UNIFORM_BLOCK_DATA_SIZE,
+                                     &uniformBlockSize);
+
+    cout << "tessLevelsSize:  " << uniformBlockSize << endl;
+    cout << "float " << sizeof(GLfloat) << endl;
+    cout << "uint " << sizeof(GLuint) << endl;
+    cout << "mat4 " << sizeof(glm::mat4) << endl;
+    cout << "vec3 " << sizeof(glm::vec3) << endl;
+    cout << "ubosizes " << uboSizes[0]  << endl;
 }
 
 void updateUniforms()
@@ -640,29 +671,20 @@ void updateUniforms()
 
     //matrices block
 
-    //GLuint uniformBlockIndex;
-    //GLsizei uniformBlockSize;
-    //uniformBlockIndex = glGetUniformBlockIndex(gProgram[1], "matrices");
-    //glGetActiveUniformBlockiv(gProgram[1], uniformBlockIndex,
-    //                                 GL_UNIFORM_BLOCK_DATA_SIZE,
-    //                                 &uniformBlockSize);
-
-    //cout << "uniformBlockSize " << uniformBlockSize << endl;
-    //cout << "float " << sizeof(GLfloat) << endl;
-    //cout << "uint " << sizeof(GLuint) << endl;
-    //cout << "mat4 " << sizeof(glm::mat4) << endl;
-    //cout << "vec3 " << sizeof(glm::vec3) << endl;
-    //cout << "ubosizes " << uboSizes[0] + uboSizes[1] << endl;
 
     glBufferSubData(GL_UNIFORM_BUFFER, 0                    , sizeof(glm::mat4), glm::value_ptr(modelingMatrix));
-    glBufferSubData(GL_UNIFORM_BUFFER,     sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(viewingMatrix));
+    glBufferSubData(GL_UNIFORM_BUFFER, 1 * sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(viewingMatrix));
     glBufferSubData(GL_UNIFORM_BUFFER, 2 * sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(projectionMatrix));
     glBufferSubData(GL_UNIFORM_BUFFER, 3 * sizeof(glm::mat4), sizeof(glm::vec3), glm::value_ptr(eyePos));
 
     //upload tesselation levels
-    glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] - 1 * sizeof(GLfloat), sizeof(GLfloat), &tessInner);
-    glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 0 * sizeof(GLfloat), sizeof(GLfloat), &tessOuter);
-    glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 1 * sizeof(GLfloat), sizeof(GLfloat), &levelOfDetail);
+    //glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0]  -1 * sizeof(GLfloat), sizeof(GLfloat), &tessInner);
+    glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 0 * sizeof(GLfloat), sizeof(GLfloat), &tessInner);
+    glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 1 * sizeof(GLfloat), sizeof(GLfloat), &tessOuter);
+    glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 2 * sizeof(GLfloat), sizeof(GLfloat), &levelOfDetail);
+    //glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 3 * sizeof(GLfloat), sizeof(GLfloat), &levelOfDetail);
+    //glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 4 * sizeof(GLfloat), sizeof(GLfloat), &levelOfDetail);
+    //glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 5 * sizeof(GLfloat), sizeof(GLfloat), &levelOfDetail);
 
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
@@ -679,13 +701,13 @@ int initTerrain()
     index[2] = 0;
     gFaces[numberOfObj].push_back(Face(index, index, index));
 
+    int temp = numberOfObj;
     numberOfObj++;
-    return numberOfObj;
+    return temp;
 }
 
 void init() 
 {
-    terrainVaoID = initTerrain();
 	//ParseObj("dragon-lowres.obj");
 	ParseObj("teapot.obj");
 	//ParseObj("suzanne.obj");
@@ -703,7 +725,7 @@ void init()
                 NULL,
                 "frag.glsl");
     initProgram(1,
-                "vert2.glsl",
+                "fur.vert",
                 "fur.tesc",
                 "fur.tese",
                 NULL,
@@ -716,6 +738,16 @@ void init()
                 "frag2.glsl");
                 
     initVBO(0);
+
+    terrainVaoID = initTerrain();
+    terrainProgramID = 3;
+    initProgram(terrainProgramID, 
+                "terrain.vert",
+                NULL,
+                NULL,
+                "terrain.geom",
+                "terrain.frag");
+    initVBO(terrainVaoID);
 
     initUBO();
     updateUniforms();
@@ -747,6 +779,26 @@ void drawModel(size_t objId)
     //    glDrawElements(GL_TRIANGLES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
     //    //glDrawElements(GL_TRIANGLES,  3, GL_UNSIGNED_INT, 0);
     //}
+}
+
+void drawTerrain(size_t terrainId)
+{
+	glUseProgram(gProgram[terrainProgramID]);
+	//glUniformMatrix4fv(projectionMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
+	//glUniformMatrix4fv(viewingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(viewingMatrix));
+	//glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
+	//glUniform3fv(eyePosLoc[activeProgramIndex], 1, glm::value_ptr(eyePos));
+    /////////
+
+    glBindVertexArray(vao[terrainId]);
+	glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer[terrainId]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBuffer[terrainId]);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes[terrainId]));
+
+	//glDrawElementsInstanced(GL_POINTS, gFaces[terrainId].size(), GL_UNSIGNED_INT, 0, 1000*1000);
+	glDrawElementsInstanced(GL_POINTS, gFaces[terrainId].size(), GL_UNSIGNED_INT, 0, vertexCount*vertexCount);
 }
 
 void display()
@@ -1022,6 +1074,7 @@ void mainLoop(GLFWwindow* window)
 
         reshape(window, width, height);
         display();
+        //drawTerrain(terrainVaoID);
         glfwSwapBuffers(window);
         glfwPollEvents();
         //cout << "glError: " <<  glGetError() << endl;

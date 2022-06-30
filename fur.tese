@@ -9,6 +9,10 @@ layout (std140, binding = 0) uniform matrices
     mat4 viewingMatrix;
     mat4 projectionMatrix;
     vec3 eyePos;
+};
+
+layout (std140, binding = 1) uniform tessLevels
+{
     float tessInner;
     float tessOuter;
     float levelOfDetail;

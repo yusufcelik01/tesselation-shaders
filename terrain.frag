@@ -18,10 +18,23 @@ layout (std140, binding = 0) uniform matrices
     mat4 modelingMatrix;
     mat4 viewingMatrix;
     mat4 projectionMatrix;
-    float terrainSpan;
-    uint vertexCount;
-    float noiseScale;
+    //float terrainSpan;
+    //uint vertexCount;
+    //float noiseScale;
 };
+
+float terrainSpan = 30;
+uint vertexCount = 1000;
+float noiseScale = 1.5;
+//layout (std140, binding = 0) uniform matrices
+//{
+//    mat4 modelingMatrix;
+//    mat4 viewingMatrix;
+//    mat4 projectionMatrix;
+//    float terrainSpan;
+//    uint vertexCount;
+//    float noiseScale;
+//};
 
 uniform vec3 eyePos;
 
