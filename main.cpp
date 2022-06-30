@@ -41,6 +41,7 @@ int wireframeMode = 0;
 
 GLfloat tessOuter = 1;
 GLfloat tessInner = 1;
+GLfloat levelOfDetail = 1;
 
 float cameraZoom = 90.f; //45.0f;
 int width = 1200, height = 900;
@@ -104,6 +105,12 @@ GLuint vao[5];
 GLuint ubo[4];
 GLsizei uboSizes[4];
 
+//terrain params
+size_t terrainVaoID = -1;
+GLuint vertexCount = 1000;
+GLfloat terrainSpan = 30;
+GLfloat noiseScale = 1.50;
+
 
 
 GLuint gVertexAttribBuffer[5], gIndexBuffer[5];
@@ -111,7 +118,7 @@ GLint gInVertexLoc[5], gInNormalLoc[5];
 int gVertexDataSizeInBytes[5], gNormalDataSizeInBytes[5];
 
 
-bool ParseObj(const string& fileName)
+int ParseObj(const string& fileName)
 {
     fstream myfile;
 
@@ -203,7 +210,7 @@ bool ParseObj(const string& fileName)
     }
     else
     {
-        return false;
+        return -1;
     }
 
     //cout << "gVertices: " << gVertices[numberOfObj].size() << endl;
@@ -211,7 +218,7 @@ bool ParseObj(const string& fileName)
 	assert(gVertices[numberOfObj].size() == gNormals[numberOfObj].size());
 
     numberOfObj++;
-    return true;
+    return numberOfObj;
 }
 
 bool ReadDataFromFile(
@@ -655,11 +662,30 @@ void updateUniforms()
     //upload tesselation levels
     glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] - 1 * sizeof(GLfloat), sizeof(GLfloat), &tessInner);
     glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 0 * sizeof(GLfloat), sizeof(GLfloat), &tessOuter);
+    glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 1 * sizeof(GLfloat), sizeof(GLfloat), &levelOfDetail);
 
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
+
+int initTerrain()
+{
+    
+    gVertices[numberOfObj].push_back(Vertex(0.0f, 0.0f, 0.0f));
+    gNormals[numberOfObj].push_back(Normal(0, 1, 0));
+
+    int index[3];
+    index[0] = 0;
+    index[1] = 0;
+    index[2] = 0;
+    gFaces[numberOfObj].push_back(Face(index, index, index));
+
+    numberOfObj++;
+    return numberOfObj;
+}
+
 void init() 
 {
+    terrainVaoID = initTerrain();
 	//ParseObj("dragon-lowres.obj");
 	ParseObj("teapot.obj");
 	//ParseObj("suzanne.obj");
@@ -670,7 +696,7 @@ void init()
 
     glEnable(GL_DEPTH_TEST);
     //initShaders();
-    initProgram(0,
+    initProgram(4,
                 "vert.glsl",
                 NULL,
                 NULL,
@@ -682,7 +708,7 @@ void init()
                 "fur.tese",
                 NULL,
                 "fur.frag");
-    initProgram(4,
+    initProgram(0,
                 "vert2.glsl",
                 "pn-triangles.tesc",
                 "pn-triangles.tese",
@@ -706,13 +732,8 @@ void drawModel(size_t objId)
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes[objId]));
 
 
-        glPatchParameteri(GL_PATCH_VERTICES, 3);
-        glDrawElements(GL_PATCHES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
-    if (activeProgramIndex == 0)
-    {
-        glDrawElements(GL_TRIANGLES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
-        //glDrawElements(GL_TRIANGLES,  3, GL_UNSIGNED_INT, 0);
-    }
+    glPatchParameteri(GL_PATCH_VERTICES, 3);
+    glDrawElements(GL_PATCHES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
     //if(activeProgramIndex == 1)
     //{
     //    //glUniform1f(tessInnerLoc[1], tessInner);
@@ -858,12 +879,6 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
         enableFur = !enableFur;
         //std::cout << "active program 0" << std::endl;
     }
-    else if (key == GLFW_KEY_P && action == GLFW_PRESS)
-    {
-        //glShadeModel(GL_SMOOTH);
-        activeProgramIndex = !activeProgramIndex;
-        //std::cout << "active program 1" << std::endl;
-    }
     else if (key == GLFW_KEY_F && action == GLFW_PRESS)
     {
 
@@ -976,6 +991,22 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
         {
             tessInner += 1.0;
             cout << "tessInner: " << tessInner << endl;
+        }
+    }
+    if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
+    {
+        if(levelOfDetail > 1.99)
+        {
+            levelOfDetail -= 1.0f;
+            cout << "levelOfDetail: " << levelOfDetail << endl;
+        }
+    }
+    else if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
+    {
+        if((float)64 >= levelOfDetail + 1.0)
+        {
+            levelOfDetail += 1.0;
+            cout << "levelOfDetail: " << levelOfDetail << endl;
         }
     }
 

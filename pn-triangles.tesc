@@ -8,6 +8,7 @@ layout (std140, binding = 0) uniform matrices
     vec3 eyePos;
     float tessInner;
     float tessOuter;
+    float levelOfDetail;
 };
 
 
@@ -45,10 +46,10 @@ void main()
         gl_TessLevelInner[0] = 0.f;
         return;
     }
-    gl_TessLevelOuter[0] = tessOuter;
-    gl_TessLevelOuter[1] = tessOuter;
-    gl_TessLevelOuter[2] = tessOuter;
-    gl_TessLevelInner[0] = tessInner;
+    gl_TessLevelOuter[0] = tessOuter * levelOfDetail;
+    gl_TessLevelOuter[1] = tessOuter * levelOfDetail;
+    gl_TessLevelOuter[2] = tessOuter * levelOfDetail;
+    gl_TessLevelInner[0] = tessInner * levelOfDetail;
 
 
     tesc_out[gl_InvocationID].fragWorldPos = tesc_in[gl_InvocationID].fragWorldPos;

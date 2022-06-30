@@ -21,6 +21,7 @@ layout (std140, binding = 0) uniform matrices
     vec3 eyePos;
     float tessInner;
     float tessOuter;
+    float levelOfDetail;
 };
 
 
