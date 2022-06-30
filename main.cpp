@@ -661,8 +661,8 @@ void updateUniforms()
 void init() 
 {
 	//ParseObj("dragon-lowres.obj");
-	//ParseObj("teapot.obj");
-	ParseObj("suzanne.obj");
+	ParseObj("teapot.obj");
+	//ParseObj("suzanne.obj");
 	//ParseObj("armadillo.obj");
 	//ParseObj("bunny.obj");
 	//ParseObj("bunny_lowres.obj");
@@ -670,7 +670,7 @@ void init()
 
     glEnable(GL_DEPTH_TEST);
     //initShaders();
-    initProgram(4,
+    initProgram(0,
                 "vert.glsl",
                 NULL,
                 NULL,
@@ -682,7 +682,7 @@ void init()
                 "fur.tese",
                 NULL,
                 "fur.frag");
-    initProgram(0,
+    initProgram(4,
                 "vert2.glsl",
                 "pn-triangles.tesc",
                 "pn-triangles.tese",
@@ -708,6 +708,11 @@ void drawModel(size_t objId)
 
         glPatchParameteri(GL_PATCH_VERTICES, 3);
         glDrawElements(GL_PATCHES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
+    if (activeProgramIndex == 0)
+    {
+        glDrawElements(GL_TRIANGLES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
+        //glDrawElements(GL_TRIANGLES,  3, GL_UNSIGNED_INT, 0);
+    }
     //if(activeProgramIndex == 1)
     //{
     //    //glUniform1f(tessInnerLoc[1], tessInner);
@@ -945,31 +950,34 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
         if(tessOuter > 1.99)
         {
             tessOuter -= 1.0;
-            tessInner = tessOuter;
             cout << "tessOuter: " << tessOuter << endl;
-            cout << "tessInner: " << tessInner << endl;
         }
     }
     else if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
     {
-        tessOuter += 1.0;
-        tessInner = tessOuter;
-        cout << "tessOuter: " << tessOuter << endl;
-        cout << "tessInner: " << tessInner << endl;
+        if((float)64 >= tessOuter + 1.0)
+        {
+            tessOuter += 1.0;
+            cout << "max tess level: " << (int) GL_MAX_TESS_GEN_LEVEL << endl;
+            cout << "tessOuter: " << tessOuter << endl;
+        }
     }
-    //if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS)
-    //{
-    //    if(tessInner > 1.3)
-    //    {
-    //        tessInner -= 0.4;
-    //        cout << "tessInner: " << tessInner << endl;
-    //    }
-    //}
-    //else if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS)
-    //{
-    //    tessInner += 0.4;
-    //    cout << "tessInner: " << tessInner << endl;
-    //}
+    if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS)
+    {
+        if(tessInner > 1.99)
+        {
+            tessInner -= 1.0f;
+            cout << "tessInner: " << tessInner << endl;
+        }
+    }
+    else if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS)
+    {
+        if((float)64 >= tessInner + 1.0)
+        {
+            tessInner += 1.0;
+            cout << "tessInner: " << tessInner << endl;
+        }
+    }
 
 }
 

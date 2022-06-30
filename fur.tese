@@ -1,5 +1,8 @@
 #version 460 core
 
+#define M_PI 3.1415926535897932384626433832795
+
+
 layout (std140, binding = 0) uniform matrices
 {
     mat4 modelingMatrix;
@@ -37,6 +40,8 @@ struct Triangle
 };
 
 vec3 triangleNormal(vec3 t0, vec3 t1, vec3 t2);
+mat4 rotateX(float angle);
+mat4 rotateAroundAxis(float angle, vec3 u);
 struct Vertex hairVertex(int hairID, struct Triangle triangle);
 
 void main()
@@ -72,13 +77,49 @@ void main()
     float hairLength = (distance(p0, p1) +
                         distance(p1, p2) +
                         distance(p2, p0) ) /3.0;
+
+    //line furs
     vec4 hairTip = hairRoot.coord + vec4(normalize(hairRoot.normal) * hairLength * 1, 0.f);
-
-
 
     tese_out.fragWorldPos = mix(hairRoot.coord, hairTip, u);
     tese_out.fragWorldNor = hairRoot.normal; 
     gl_Position = projectionMatrix * viewingMatrix * modelingMatrix * tese_out.fragWorldPos;
+
+    //bezier curve furs
+    
+    vec3 surfNorm = triangleNormal(p0.xyz, p1.xyz, p2.xyz);//actual normal not vertex
+    float alpha = acos(dot(surfNorm, hairRoot.normal)); //fur angle
+    float theta = alpha * 0.5;
+    vec3 hairRotAxis = cross(surfNorm, hairRoot.normal);
+
+    vec3 hairRootNorm = normalize(hairRoot.normal);
+    vec3 hairRootToTip = normalize((rotateAroundAxis(theta, hairRotAxis) 
+                                * vec4(hairRootNorm,0.f)).xyz);
+    vec3 hairTipNorm = normalize((rotateAroundAxis( theta*2, hairRotAxis) * vec4(hairRootNorm, 0.f)).xyz);
+
+    vec3 B1 = hairRoot.coord.xyz;
+    vec3 B2 = hairRootNorm*hairLength/3.0f  + B1;
+    vec3 B4 = B1 +  hairRootToTip * hairLength;
+    vec3 B3 = hairTipNorm*hairLength/ -3.f + B4;
+
+    tese_out.fragWorldPos = vec4(pow(1-u, 3)*B1 +
+                                 3*u*pow(1-u, 2)*B2 +
+                                 3*u*u*(1-u)*B3 +
+                                 u*u*u*B4
+                                 , 1.f);
+    //tese_out.fragWorldPos = vec4(mix(B1, B4, u), 1.f);
+    theta = mix(0, theta*2, u);
+    tese_out.fragWorldNor = normalize((rotateAroundAxis( theta, hairRotAxis) * vec4(hairRootNorm, 0.f)).xyz);
+    gl_Position = projectionMatrix * viewingMatrix * modelingMatrix * tese_out.fragWorldPos;
+
+
+                        
+
+    
+
+
+
+
 
     //vec4 corner = tese_in[hairID % 3].fragWorldPos;
 
@@ -121,6 +162,38 @@ vec3 triangleNormal(vec3 t0, vec3 t1, vec3 t2)
 {
     return normalize(cross(t1-t0, t2-t1));
 }
+
+mat4 rotateX(float angle)
+{
+    return mat4(1.f,         0.f,        0.f, 0.f, //col0
+                0.f,  cos(angle), sin(angle), 0.f, 
+                0.f, -sin(angle), cos(angle), 0.f,
+                0.f, 0.f, 0.f, 1.f);
+
+
+}
+
+mat4 rotateAroundAxis(float angle, vec3 u)
+{
+    vec3 v;
+    v.x = -u.y;
+    v.y = u.x;
+    v.z = 0.f;
+    
+    vec3 w = cross(u, v);
+    u =  normalize(u);
+    v =  normalize(v);
+    w =  normalize(w);
+
+    mat4 M = mat4(1.f);
+
+    M[0] = vec4(u.x, v.x, w.x, 0.f);
+    M[1] = vec4(u.y, v.y, w.y, 0.f);
+    M[2] = vec4(u.z, v.z, w.z, 0.f);
+
+    return inverse(M) * rotateX(angle) * M;
+}
+
 
 
 struct Vertex getHairRootCoord(int hairID, int numberOfHairs, struct Triangle triangle)

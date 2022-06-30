@@ -40,11 +40,9 @@ void main()
         return;
     }
     gl_TessLevelOuter[0] = tessOuter;
-    gl_TessLevelOuter[1] = tessOuter;
+    gl_TessLevelOuter[1] = tessInner;
     gl_TessLevelOuter[2] = tessOuter;
     gl_TessLevelInner[0] = tessInner;
-    //gl_TessLevelOuter[0] = 6;
-    //gl_TessLevelOuter[1] = 6;
 
     //shrink triangles
     vec4 mid = ( tesc_in[0].fragWorldPos +
