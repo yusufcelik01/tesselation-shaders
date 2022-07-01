@@ -17,6 +17,8 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 
+#include "helpers.hpp"
+
 #define BUFFER_OFFSET(i) ((char*)NULL + (i))
 
 using namespace std;
@@ -39,6 +41,7 @@ GLint projectionMatrixLoc[8];
 GLint eyePosLoc[8];
 GLint tessInnerLoc[8];
 GLint tessOuterLoc[8];
+
 
 glm::mat4 projectionMatrix;
 glm::mat4 viewingMatrix;
@@ -121,7 +124,12 @@ GLuint vertexCount = 1000;
 GLfloat terrainSpan = 30;
 GLfloat noiseScale = 1.50;
 
-
+//cobblestone
+int cobblestoneProgramID;
+size_t cobblestoneVaoID;
+unsigned int cobbleStoneTex[4];
+char* imagePath = NULL;
+unsigned char* rawImage = NULL;
 
 GLuint gVertexAttribBuffer[5], gIndexBuffer[5];
 GLint gInVertexLoc[5], gInNormalLoc[5];
@@ -445,6 +453,16 @@ void initProgram(unsigned int progIndex,
         if(tcsFile != NULL ) {glDeleteShader(tcs);}
         if(tesFile != NULL ) {glDeleteShader(tes);}
         if(gsFile != NULL ) {glDeleteShader(gs);}
+
+        GLint maxLength = 0;
+        glGetProgramiv(gProgram[progIndex], GL_INFO_LOG_LENGTH, &maxLength);
+        
+        char* log = new char[maxLength];
+        glGetProgramInfoLog(gProgram[progIndex], maxLength, &maxLength, log);
+
+        printf("program link log: %s\n", log);
+
+        delete[] log;
         
 		exit(-1);
 	}
@@ -706,6 +724,49 @@ int initTerrain()
     return temp;
 }
 
+void initTexture()
+{
+    char *images[3];
+    images[0] = strdup("brick.jpg");
+    images[1] = strdup("brick_BUMP.png");
+    images[2] = strdup("brick_SPEC.png");
+
+    char * uniformTexNames[3];
+    uniformTexNames[0] = strdup("cobbleStoneTex");
+    uniformTexNames[1] = strdup("cobbleStoneBumpMap");
+    uniformTexNames[2] = strdup("cobbleStoneSpecMap");
+
+    for(int i = 0; i < 3; i++)
+    {
+        imagePath = strdup(images[i]);
+        glGenTextures(1, &cobbleStoneTex[i]);
+        glActiveTexture(GL_TEXTURE0 + i);
+        glBindTexture(GL_TEXTURE_2D, cobbleStoneTex[i]);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        int width, height, nrChannels;
+        rawImage = load_image(imagePath, &width, &height, &nrChannels);
+        //rawImage = load_image("brick.jpg", &width, &height, &nrChannels);
+        //flagAspecRat = (float)width/height;
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, rawImage);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glUseProgram(gProgram[cobblestoneProgramID]);
+        glUniform1i(glGetUniformLocation(gProgram[cobblestoneProgramID], uniformTexNames[i]), 0);
+        //std::cout << "get error: " << glGetError() << std::endl;
+
+        free(rawImage);
+        free(images[i]);
+        free(uniformTexNames[i]);
+    }
+}
+
 void init() 
 {
 	//ParseObj("dragon-lowres.obj");
@@ -739,6 +800,7 @@ void init()
                 
     initVBO(0);
 
+    //terrain
     terrainVaoID = initTerrain();
     terrainProgramID = 3;
     initProgram(terrainProgramID, 
@@ -748,6 +810,18 @@ void init()
                 "terrain.geom",
                 "terrain.frag");
     initVBO(terrainVaoID);
+    
+    //cobblestones
+    cobblestoneVaoID = initTerrain();
+    cobblestoneProgramID = 2;
+    initProgram(cobblestoneProgramID,
+                "cobblestone.vert",
+                "cobblestone.tesc",
+                "cobblestone.tese",
+                NULL,
+                "cobblestone.frag");
+    initVBO(cobblestoneVaoID);
+    initTexture();
 
     initUBO();
     updateUniforms();
@@ -781,14 +855,29 @@ void drawModel(size_t objId)
     //}
 }
 
-void drawTerrain(size_t terrainId)
+void drawCobblestone(size_t terrainId)
 {
-	glUseProgram(gProgram[terrainProgramID]);
+	glUseProgram(gProgram[cobblestoneProgramID]);
 	//glUniformMatrix4fv(projectionMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
 	//glUniformMatrix4fv(viewingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(viewingMatrix));
 	//glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
 	//glUniform3fv(eyePosLoc[activeProgramIndex], 1, glm::value_ptr(eyePos));
     /////////
+
+    glBindVertexArray(vao[terrainId]);
+	glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer[terrainId]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBuffer[terrainId]);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes[terrainId]));
+
+	//glDrawElementsInstanced(GL_POINTS, gFaces[terrainId].size(), GL_UNSIGNED_INT, 0, 1000*1000);
+    glPatchParameteri(GL_PATCH_VERTICES, 1);
+	glDrawElements(GL_PATCHES, gFaces[terrainId].size(), GL_UNSIGNED_INT, 0);
+}
+void drawTerrain(size_t terrainId)
+{
+	glUseProgram(gProgram[terrainProgramID]);
 
     glBindVertexArray(vao[terrainId]);
 	glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer[terrainId]);
@@ -1047,9 +1136,9 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
     }
     if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
     {
-        if(levelOfDetail > 1.99)
+        if(levelOfDetail > 1.3)
         {
-            levelOfDetail -= 1.0f;
+            levelOfDetail -= 0.3f;
             cout << "levelOfDetail: " << levelOfDetail << endl;
         }
     }
@@ -1057,7 +1146,7 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
     {
         if((float)64 >= levelOfDetail + 1.0)
         {
-            levelOfDetail += 1.0;
+            levelOfDetail += 0.3;
             cout << "levelOfDetail: " << levelOfDetail << endl;
         }
     }
@@ -1075,6 +1164,7 @@ void mainLoop(GLFWwindow* window)
         reshape(window, width, height);
         display();
         //drawTerrain(terrainVaoID);
+        drawCobblestone(cobblestoneVaoID);
         glfwSwapBuffers(window);
         glfwPollEvents();
         //cout << "glError: " <<  glGetError() << endl;
