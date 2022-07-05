@@ -107,14 +107,20 @@ struct Face
     GLuint vIndex[3], tIndex[3], nIndex[3];
 };
 
+struct BezierSurface
+{
+    GLuint vIndices[16];
+};
+
 size_t numberOfObj = 0;
 
-vector<Vertex> gVertices[5];
-vector<Texture> gTextures[5];
-vector<Normal> gNormals[5];
-vector<Face> gFaces[5];
+vector<Vertex> gVertices[8];
+vector<Texture> gTextures[8];
+vector<Normal> gNormals[8];
+vector<Face> gFaces[8];
+vector<BezierSurface> gSurfaces[8];
 
-GLuint vao[5];
+GLuint vao[8];
 GLuint ubo[4];
 GLsizei uboSizes[4];
 
@@ -132,9 +138,9 @@ unsigned int cobbleStoneTex[4];
 char* imagePath = NULL;
 unsigned char* rawImage = NULL;
 
-GLuint gVertexAttribBuffer[5], gIndexBuffer[5];
-GLint gInVertexLoc[5], gInNormalLoc[5];
-int gVertexDataSizeInBytes[5], gNormalDataSizeInBytes[5];
+GLuint gVertexAttribBuffer[8], gIndexBuffer[8];
+GLint gInVertexLoc[8], gInNormalLoc[8];
+int gVertexDataSizeInBytes[8], gNormalDataSizeInBytes[8];
 
 
 int ParseObj(const string& fileName)
@@ -235,6 +241,83 @@ int ParseObj(const string& fileName)
     //cout << "gVertices: " << gVertices[numberOfObj].size() << endl;
     //cout << "gNormals: " << gNormals[numberOfObj].size() << endl;
 	assert(gVertices[numberOfObj].size() == gNormals[numberOfObj].size());
+
+    int temp = numberOfObj;
+    numberOfObj++;
+    return temp;
+}
+
+int ParseBezierObj(const string& fileName)
+{
+    fstream myfile;
+
+    // Open the input 
+    myfile.open(fileName.c_str(), std::ios::in);
+
+    if (myfile.is_open())
+    {
+        string curLine;
+
+        while (getline(myfile, curLine))
+        {
+            stringstream str(curLine);
+            GLfloat c1, c2, c3;
+            GLuint index[9];
+            string tmp;
+
+            if (curLine.length() >= 2)
+            {
+                if (curLine[0] == 'v')
+                {
+                    if (curLine[1] == 't') // texture
+                    {
+                        str >> tmp; // consume "vt"
+                        str >> c1 >> c2;
+                        gTextures[numberOfObj].push_back(Texture(c1, c2));
+                    }
+                    else // vertex
+                    {
+                        str >> tmp; // consume "v"
+                        str >> c1 >> c2 >> c3;
+                        gVertices[numberOfObj].push_back(Vertex(c1, c2, c3));
+                    }
+                }
+                else if(curLine.substr(0,4) == string("surf"))
+                {
+                    str >> tmp; //consume "surf"
+                    char c;
+                    BezierSurface surf;
+                    for(int i = 0; i < 16; i++)
+                    {
+                        str >> surf.vIndices[i];
+                        surf.vIndices[i]--;//make indices start from 0
+                    }
+                    
+                    gSurfaces[numberOfObj].push_back(surf);
+                    
+                }
+                else
+                {
+                    cout << "Ignoring unidentified line in obj file: " << curLine << endl;
+                }
+            }
+
+            //data += curLine;
+            if (!myfile.eof())
+            {
+                //data += "\n";
+            }
+        }
+
+        myfile.close();
+    }
+    else
+    {
+        return -1;
+    }
+
+    //cout << "gVertices: " << gVertices[numberOfObj].size() << endl;
+    //cout << "gNormals: " << gNormals[numberOfObj].size() << endl;
 
     int temp = numberOfObj;
     numberOfObj++;
@@ -646,6 +729,87 @@ void initVBO(size_t objId)
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes[objId]));
 }
 
+void initBezierVBO(size_t objId)
+{
+    glGenVertexArrays(1, &vao[objId]);
+    assert(vao[objId] > 0);
+    glBindVertexArray(vao[objId]);
+    cout << "bezier vao = " << vao[objId] << endl;
+
+	glEnableVertexAttribArray(0);
+	//glEnableVertexAttribArray(1);
+	assert(glGetError() == GL_NONE);
+
+	glGenBuffers(1, &gVertexAttribBuffer[objId]);
+	glGenBuffers(1, &gIndexBuffer[objId]);
+
+	assert(gVertexAttribBuffer[objId] > 0 && gIndexBuffer[objId] > 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer[objId]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBuffer[objId]);
+
+	gVertexDataSizeInBytes[objId] = gVertices[objId].size() * 3 * sizeof(GLfloat);
+	//gNormalDataSizeInBytes[objId] = gNormals[objId].size() * 3 * sizeof(GLfloat);
+	int indexDataSizeInBytes = gSurfaces[objId].size() * 16 * sizeof(GLuint);
+	GLfloat* vertexData = new GLfloat [gVertices[objId].size() * 3];
+	//GLfloat* normalData = new GLfloat [gNormals[objId].size() * 3];
+	GLuint* indexData = new GLuint [gSurfaces[objId].size() * 16];
+
+    float minX = 1e6, maxX = -1e6;
+    float minY = 1e6, maxY = -1e6;
+    float minZ = 1e6, maxZ = -1e6;
+
+	for (int i = 0; i < gVertices[objId].size(); ++i)
+	{
+		vertexData[3*i] = gVertices[objId][i].x;
+		vertexData[3*i+1] = gVertices[objId][i].y;
+		vertexData[3*i+2] = gVertices[objId][i].z;
+
+        minX = std::min(minX, gVertices[objId][i].x);
+        maxX = std::max(maxX, gVertices[objId][i].x);
+        minY = std::min(minY, gVertices[objId][i].y);
+        maxY = std::max(maxY, gVertices[objId][i].y);
+        minZ = std::min(minZ, gVertices[objId][i].z);
+        maxZ = std::max(maxZ, gVertices[objId][i].z);
+	}
+
+    std::cout << "minX = " << minX << std::endl;
+    std::cout << "maxX = " << maxX << std::endl;
+    std::cout << "minY = " << minY << std::endl;
+    std::cout << "maxY = " << maxY << std::endl;
+    std::cout << "minZ = " << minZ << std::endl;
+    std::cout << "maxZ = " << maxZ << std::endl;
+
+	//for (int i = 0; i < gNormals[objId].size(); ++i)
+	//{
+	//	normalData[3*i] = gNormals[objId][i].x;
+	//	normalData[3*i+1] = gNormals[objId][i].y;
+	//	normalData[3*i+2] = gNormals[objId][i].z;
+	//}
+
+	for (int i = 0; i < gSurfaces[objId].size(); ++i)
+	{
+        for(int j = 0; j < 16; ++j)
+        {
+            indexData[16*i + j] = gSurfaces[objId][i].vIndices[j];
+        }
+	}
+
+
+	glBufferData(GL_ARRAY_BUFFER, gVertexDataSizeInBytes[objId] /*+ gNormalDataSizeInBytes[objId]*/, 0, GL_STATIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, gVertexDataSizeInBytes[objId], vertexData);
+	//glBufferSubData(GL_ARRAY_BUFFER, gVertexDataSizeInBytes[objId], gNormalDataSizeInBytes[objId], normalData);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexDataSizeInBytes, indexData, GL_STATIC_DRAW);
+
+	// done copying; can free now
+	delete[] vertexData;
+	//delete[] normalData;
+	delete[] indexData;
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes[objId]));
+}
+
 void initUBO()
 {
     glGenBuffers(1, &ubo[0]);
@@ -669,19 +833,19 @@ void initUBO()
     glGetActiveUniformBlockiv(gProgram[1], uniformBlockIndex,
                                      GL_UNIFORM_BLOCK_DATA_SIZE,
                                      &uniformBlockSize);
-    cout << "matrices size: " << uniformBlockSize << endl;
+    //cout << "matrices size: " << uniformBlockSize << endl;
 
     uniformBlockIndex = glGetUniformBlockIndex(gProgram[1], "tessLevels");
     glGetActiveUniformBlockiv(gProgram[1], uniformBlockIndex,
                                      GL_UNIFORM_BLOCK_DATA_SIZE,
                                      &uniformBlockSize);
 
-    cout << "tessLevelsSize:  " << uniformBlockSize << endl;
-    cout << "float " << sizeof(GLfloat) << endl;
-    cout << "uint " << sizeof(GLuint) << endl;
-    cout << "mat4 " << sizeof(glm::mat4) << endl;
-    cout << "vec3 " << sizeof(glm::vec3) << endl;
-    cout << "ubosizes " << uboSizes[0]  << endl;
+    //cout << "tessLevelsSize:  " << uniformBlockSize << endl;
+    //cout << "float " << sizeof(GLfloat) << endl;
+    //cout << "uint " << sizeof(GLuint) << endl;
+    //cout << "mat4 " << sizeof(glm::mat4) << endl;
+    //cout << "vec3 " << sizeof(glm::vec3) << endl;
+    //cout << "ubosizes " << uboSizes[0]  << endl;
 }
 
 void updateUniforms()
@@ -771,12 +935,13 @@ void initTexture()
 void init() 
 {
 	//ParseObj("dragon-lowres.obj");
-	//ParseObj("teapot.obj");
+	ParseObj("teapot.obj");
 	//ParseObj("suzanne.obj");
 	//ParseObj("armadillo.obj");
 	//ParseObj("bunny.obj");
-	ParseObj("bunny_lowres.obj");
+	//ParseObj("bunny_lowres.obj");
 	//ParseObj("cube.obj");
+    ParseBezierObj("bezier-teapot.obj");
 
     glEnable(GL_DEPTH_TEST);
     //initShaders();
@@ -798,8 +963,16 @@ void init()
                 "pn-triangles.tese",
                 NULL,
                 "frag2.glsl");
+    
+    initProgram(5,
+                "bezier.vert",
+                "bezier.tesc",
+                "bezier.tese",
+                NULL,
+                "bezier.frag");
                 
     initVBO(0);
+    initBezierVBO(1);
 
     //terrain
     terrainVaoID = initTerrain();
@@ -855,6 +1028,25 @@ void drawModel(size_t objId)
     //    //glDrawElements(GL_TRIANGLES,  3, GL_UNSIGNED_INT, 0);
     //}
 }
+
+void drawBezierModel(size_t objId)
+{
+    glUseProgram(gProgram[5]);
+    glBindVertexArray(vao[objId]);
+	glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer[objId]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBuffer[objId]);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes[objId]));
+
+
+    glPatchParameteri(GL_PATCH_VERTICES, 16);
+    glDrawElements(GL_PATCHES, gSurfaces[objId].size() * 16, GL_UNSIGNED_INT, 0);
+    //glDrawElements(GL_TRIANGLES,  gSurfaces[objId].size() * 16, GL_UNSIGNED_INT, 0);
+    //glDrawElements(GL_POINTS,  gSurfaces[objId].size() * 16, GL_UNSIGNED_INT, 0);
+    //glDrawElements(GL_PATCHES,  16 *1 , GL_UNSIGNED_INT, 0);
+}
+
 
 void drawCobblestone(size_t terrainId)
 {
@@ -955,14 +1147,14 @@ void display()
 	// Set the active program and the values of its uniform variables
     modelingMatrix = glm::mat4(1);
 
-    activeProgramIndex = 0;
+    activeProgramIndex = 4;
 	glUseProgram(gProgram[activeProgramIndex]);
-	glUniformMatrix4fv(projectionMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
-	glUniformMatrix4fv(viewingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(viewingMatrix));
-	glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
+	//glUniformMatrix4fv(projectionMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
+	//glUniformMatrix4fv(viewingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(viewingMatrix));
+	//glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
 
 	// Draw the scene
-    drawModel(0);
+    //drawModel(0);
 
     if(enableFur)
     {
@@ -974,6 +1166,10 @@ void display()
         drawModel(0);
     }
 
+    float teapotAngle = (float)(-90.f/180.f) * M_PI;
+	modelingMatrix = glm::rotate<float>(glm::mat4(1.f), teapotAngle, glm::vec3(1.0, 0.0, 0.0));
+    updateUniforms();
+    drawBezierModel(1);
 
 	angle += 0.5;
 }
@@ -987,6 +1183,8 @@ void reshape(GLFWwindow* window, int w, int h)
     gHeight = h;
 
     glViewport(0, 0, w, h);
+    //glViewport(w/2, 0, w/2, h);
+    //glViewport(0, 0, w/2, h);
 
     //handle euler angles
     float yawInRads = (yaw/180) * M_PI;
@@ -1148,7 +1346,7 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
 
 void scrollCallBack(GLFWwindow* window, double xOffset, double yOffset)
 {
-    float sensitivity = 1.4f; 
+    float sensitivity = 2.1f; 
 
     cameraFov -= yOffset * sensitivity;
 }
@@ -1205,7 +1403,7 @@ void mainLoop(GLFWwindow* window)
         reshape(window, width, height);
         display();
         //drawTerrain(terrainVaoID);
-        drawCobblestone(cobblestoneVaoID);
+        //drawCobblestone(cobblestoneVaoID);
         glfwSwapBuffers(window);
         glfwPollEvents();
         //cout << "glError: " <<  glGetError() << endl;

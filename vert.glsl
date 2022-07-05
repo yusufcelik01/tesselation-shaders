@@ -14,10 +14,13 @@ vec3 ka = vec3(0.3, 0.3, 0.3);   // ambient reflectance coefficient
 vec3 ks = vec3(0.8, 0.8, 0.8);   // specular reflectance coefficient
 vec3 lightPos = vec3(5, 5, 5);   // light position in world coordinates
 
-uniform mat4 modelingMatrix;
-uniform mat4 viewingMatrix;
-uniform mat4 projectionMatrix;
-uniform vec3 eyePos;
+layout (std140, binding = 0) uniform matrices
+{
+    mat4 modelingMatrix;
+    mat4 viewingMatrix;
+    mat4 projectionMatrix;
+    vec3 eyePos;
+};
 
 layout(location=0) in vec3 inVertex;
 layout(location=1) in vec3 inNormal;

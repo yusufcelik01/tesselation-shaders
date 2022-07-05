@@ -9,4 +9,5 @@ void main(void)
 	// value computed by the rasterizer.
 
 	fragColor = color;
+    //fragColor = vec4(0.8, 0.2, 0.8, 1.f);
 }
