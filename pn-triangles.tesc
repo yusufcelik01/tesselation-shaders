@@ -33,6 +33,7 @@ out TESC_TESE_INTERFACE
 } tesc_out[];
 
 bool isVisible(vec4 p);
+bool isBackFace(vec3 t0, vec3 t1, vec3 t2);
 bool lineCvvIntersection(vec4 p0, vec4 p1);
 
 void main()
@@ -50,12 +51,23 @@ void main()
         gl_TessLevelOuter[1] = 0.f;
         gl_TessLevelOuter[2] = 0.f;
         gl_TessLevelInner[0] = 0.f;
-        return;
     }
-    gl_TessLevelOuter[0] = tessOuter * levelOfDetail;
-    gl_TessLevelOuter[1] = tessOuter * levelOfDetail;
-    gl_TessLevelOuter[2] = tessOuter * levelOfDetail;
-    gl_TessLevelInner[0] = tessInner * levelOfDetail;
+    else if(isBackFace(vec3(tesc_in[0].fragWorldPos),
+                       vec3(tesc_in[1].fragWorldPos),
+                       vec3(tesc_in[2].fragWorldPos)))
+    {
+        gl_TessLevelOuter[0] = 1.0f;
+        gl_TessLevelOuter[1] = 1.0f;
+        gl_TessLevelOuter[2] = 1.0f;
+        gl_TessLevelInner[0] = 1.0f;
+    }
+    else
+    {
+        gl_TessLevelOuter[0] = tessOuter * levelOfDetail;
+        gl_TessLevelOuter[1] = tessOuter * levelOfDetail;
+        gl_TessLevelOuter[2] = tessOuter * levelOfDetail;
+        gl_TessLevelInner[0] = tessInner * levelOfDetail;
+    }
 
 
     tesc_out[gl_InvocationID].fragWorldPos = tesc_in[gl_InvocationID].fragWorldPos;
@@ -64,6 +76,10 @@ void main()
 
 }
 
+vec3 triangleNormal(vec3 t0, vec3 t1, vec3 t2)
+{
+    return normalize(cross(t1-t0, t2-t1));
+}
 /*
    this function takes a point in the canonical viewing volume 
    and returns true if this point is visible by the eye
@@ -81,6 +97,14 @@ bool isVisible(vec4 p)
     {
         return true;
     }
+}
+
+bool isBackFace(vec3 t0, vec3 t1, vec3 t2)
+{
+    vec3 norm = normalize(triangleNormal(t0, t1, t2));
+    vec3 v = normalize(((t0 + t1 + t2)/3.0f) - eyePos);
+
+    return dot(norm, v) >= 0.f;
 }
 
 bool lineCvvIntersection(vec4 p0, vec4 p1)//these points are outside the box
