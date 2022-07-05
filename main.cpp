@@ -55,7 +55,8 @@ GLfloat tessOuter = 1.0;
 GLfloat tessInner = 1.0;
 GLfloat levelOfDetail = 1.0;
 
-float cameraZoom = 90.f; //45.0f;
+#define INITIAL_FOV 90.f
+float cameraFov = INITIAL_FOV; //45.0f;
 int width = 1200, height = 900;
 float lastX = width/2.0f;
 float lastY = height/2.0f;
@@ -770,11 +771,11 @@ void initTexture()
 void init() 
 {
 	//ParseObj("dragon-lowres.obj");
-	ParseObj("teapot.obj");
+	//ParseObj("teapot.obj");
 	//ParseObj("suzanne.obj");
 	//ParseObj("armadillo.obj");
 	//ParseObj("bunny.obj");
-	//ParseObj("bunny_lowres.obj");
+	ParseObj("bunny_lowres.obj");
 	//ParseObj("cube.obj");
 
     glEnable(GL_DEPTH_TEST);
@@ -999,7 +1000,7 @@ void reshape(GLFWwindow* window, int w, int h)
     cameraFront = glm::normalize(cameraDir);
 
 	// Use perspective projection
-	float fovyRad = (float) (cameraZoom / 180.0) * M_PI;
+	float fovyRad = (float) (cameraFov / 180.0) * M_PI;
     float aspectRat = (float) 1.0f;
 	projectionMatrix = glm::perspective(fovyRad, aspectRat, 0.0001f, 100.0f);
 
@@ -1060,14 +1061,6 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
         eyePos += glm::normalize(cameraUp) * cameraSpeed * deltaTime;
     }
 
-    //if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS)
-    //{
-    //    cameraZoom -= deltaTime * 3.f;
-    //}
-    //if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
-    //{
-    //    cameraZoom += deltaTime * 3.f;
-    //}
 
     if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS)
     {
@@ -1091,14 +1084,14 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
         yaw -= 1.5f;
     }
 
-    //zoom in
+    //zoom out 
     if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
     {
-        cameraZoom += 1.5f;
-    }//zoom out
+        cameraFov += 1.5f;
+    }//zoom in
     else if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS)
     {
-        cameraZoom -= 1.5f;
+        cameraFov -= 1.5f;
     }
 
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
@@ -1136,7 +1129,7 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
     }
     if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
     {
-        if(levelOfDetail > 1.3)
+        if(levelOfDetail > 1.0)
         {
             levelOfDetail -= 0.3f;
             cout << "levelOfDetail: " << levelOfDetail << endl;
@@ -1151,6 +1144,47 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
         }
     }
 
+}
+
+void handleMouse(GLFWwindow* window, double xposIn, double yposIn)
+{
+
+    float xpos = static_cast<float>(xposIn);
+    float ypos = static_cast<float>(yposIn);
+
+    static bool mouseInit = true;
+    if (mouseInit)
+    {
+        lastX = xpos;
+        lastY = ypos;
+        mouseInit = false;
+    }
+
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+    lastX = xpos;
+    lastY = ypos;
+
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) != GLFW_PRESS)
+    {
+        return;
+    }
+
+    float sensitivity = 0.1f; // change this value to your liking
+    sensitivity *= sqrt(cameraFov / INITIAL_FOV);
+
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    yaw += xoffset;
+    pitch += yoffset;
+
+    // make sure that when pitch is out of bounds, screen doesn't get flipped
+    if (pitch > 89.0f)
+        pitch = 89.0f;
+    if (pitch < -89.0f)
+        pitch = -89.0f;
 }
 
 void mainLoop(GLFWwindow* window)
@@ -1234,6 +1268,7 @@ int main(int argc, char** argv)   // Create Main Function For Bringing It All To
     init();
 
     glfwSetKeyCallback(window, keyboard);
+    glfwSetCursorPosCallback(window, handleMouse);
     glfwSetWindowSizeCallback(window, reshape);
 
     glEnable(GL_DEBUG_OUTPUT);
