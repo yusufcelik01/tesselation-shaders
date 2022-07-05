@@ -1146,7 +1146,14 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
 
 }
 
-void handleMouse(GLFWwindow* window, double xposIn, double yposIn)
+void scrollCallBack(GLFWwindow* window, double xOffset, double yOffset)
+{
+    float sensitivity = 1.4f; 
+
+    cameraFov -= yOffset * sensitivity;
+}
+
+void mouseCallBack(GLFWwindow* window, double xposIn, double yposIn)
 {
 
     float xpos = static_cast<float>(xposIn);
@@ -1268,8 +1275,9 @@ int main(int argc, char** argv)   // Create Main Function For Bringing It All To
     init();
 
     glfwSetKeyCallback(window, keyboard);
-    glfwSetCursorPosCallback(window, handleMouse);
+    glfwSetCursorPosCallback(window, mouseCallBack);
     glfwSetWindowSizeCallback(window, reshape);
+    glfwSetScrollCallback(window, scrollCallBack);
 
     glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallbackARB(messageCallBack, 0);
