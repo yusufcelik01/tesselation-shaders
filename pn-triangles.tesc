@@ -52,15 +52,6 @@ void main()
         gl_TessLevelOuter[2] = 0.f;
         gl_TessLevelInner[0] = 0.f;
     }
-    else if(isBackFace(vec3(tesc_in[0].fragWorldPos),
-                       vec3(tesc_in[1].fragWorldPos),
-                       vec3(tesc_in[2].fragWorldPos)))
-    {
-        gl_TessLevelOuter[0] = 1.0f;
-        gl_TessLevelOuter[1] = 1.0f;
-        gl_TessLevelOuter[2] = 1.0f;
-        gl_TessLevelInner[0] = 1.0f;
-    }
     else
     {
         gl_TessLevelOuter[0] = tessOuter * levelOfDetail;
