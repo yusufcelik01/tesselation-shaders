@@ -55,6 +55,12 @@ GLfloat tessOuter = 1.0;
 GLfloat tessInner = 1.0;
 GLfloat levelOfDetail = 1.0;
 
+GLuint hairCount = 1;//per triangle
+GLfloat hairLen = 1.0;//length multiplier
+GLfloat hairThickness = 1.0;
+GLfloat hairCurveAngle = 1.0;
+
+
 #define INITIAL_FOV 90.f
 float cameraFov = INITIAL_FOV; //45.0f;
 int width = 1200, height = 900;
@@ -65,7 +71,7 @@ float pitch = 0.0f;
 
 
 
-glm::vec3 eyePos(1.0f, 2.f, 5.5f);
+glm::vec3 eyePos(0.5f, 1.f, 5.0f);
 glm::vec3 cameraFront(0.f, 0.f, -1.f);
 glm::vec3 cameraUp(0.f, 1.f, 0.f);
 
@@ -817,15 +823,21 @@ void initUBO()
 
     //vec3 causes alignment problems so we just allocate space for 4 matrices
     uboSizes[0] = sizeof(glm::mat4) * 4 ;//matrices
-    uboSizes[1] = sizeof(GLfloat)*8;//tessLevels
+    //uboSizes[1] = sizeof(GLfloat)*3;//tessLevels
+    uboSizes[1] = sizeof(glm::mat4) * 4;//tessLevels
+    uboSizes[2] = sizeof(GLfloat)*8 + sizeof(GLuint)+ sizeof(glm::mat4);//hairParams
 
-    glBufferData(GL_UNIFORM_BUFFER, uboSizes[0] + uboSizes[1], 0, GL_DYNAMIC_COPY);
+    glBufferData(GL_UNIFORM_BUFFER, uboSizes[0] + uboSizes[1] + uboSizes[2], 0, GL_DYNAMIC_COPY);
 
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
+    size_t uboOffset = 0;
     //glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo[0], 0, uboSizes[0]+uboSizes[1]);
-    glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo[0], 0, uboSizes[0]);
-    glBindBufferRange(GL_UNIFORM_BUFFER, 1, ubo[0], uboSizes[0], uboSizes[1]);
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo[0], uboOffset, uboSizes[0]);
+    uboOffset += uboSizes[0];
+    glBindBufferRange(GL_UNIFORM_BUFFER, 1, ubo[0], uboOffset, uboSizes[1]);
+    uboOffset += uboSizes[1];
+    glBindBufferRange(GL_UNIFORM_BUFFER, 2, ubo[0], uboOffset, uboSizes[2]);
 
     GLuint uniformBlockIndex;
     GLsizei uniformBlockSize;
@@ -855,6 +867,7 @@ void updateUniforms()
     //matrices block
 
 
+    size_t uboOffset = 0;
     glBufferSubData(GL_UNIFORM_BUFFER, 0                    , sizeof(glm::mat4), glm::value_ptr(modelingMatrix));
     glBufferSubData(GL_UNIFORM_BUFFER, 1 * sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(viewingMatrix));
     glBufferSubData(GL_UNIFORM_BUFFER, 2 * sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(projectionMatrix));
@@ -862,12 +875,17 @@ void updateUniforms()
 
     //upload tesselation levels
     //glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0]  -1 * sizeof(GLfloat), sizeof(GLfloat), &tessInner);
-    glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 0 * sizeof(GLfloat), sizeof(GLfloat), &tessInner);
-    glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 1 * sizeof(GLfloat), sizeof(GLfloat), &tessOuter);
-    glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 2 * sizeof(GLfloat), sizeof(GLfloat), &levelOfDetail);
-    //glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 3 * sizeof(GLfloat), sizeof(GLfloat), &levelOfDetail);
-    //glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 4 * sizeof(GLfloat), sizeof(GLfloat), &levelOfDetail);
-    //glBufferSubData(GL_UNIFORM_BUFFER, uboSizes[0] + 5 * sizeof(GLfloat), sizeof(GLfloat), &levelOfDetail);
+    uboOffset += uboSizes[0];
+    glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 0 * sizeof(GLfloat), sizeof(GLfloat), &tessInner);
+    glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 1 * sizeof(GLfloat), sizeof(GLfloat), &tessOuter);
+    glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 2 * sizeof(GLfloat), sizeof(GLfloat), &levelOfDetail);
+
+    //upload hair parameters
+    uboOffset += uboSizes[1];
+    glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 0 * sizeof(GLfloat), sizeof(GLfloat), &hairLen);
+    glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 1 * sizeof(GLfloat), sizeof(GLfloat), &hairThickness);
+    glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 2 * sizeof(GLfloat), sizeof(GLfloat), &hairCurveAngle);
+    glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 3 * sizeof(GLfloat), sizeof(GLuint), &hairCount);
 
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
@@ -934,12 +952,11 @@ void initTexture()
 
 void init() 
 {
-	//ParseObj("dragon-lowres.obj");
-	ParseObj("teapot.obj");
+	//ParseObj("teapot.obj");
 	//ParseObj("suzanne.obj");
 	//ParseObj("armadillo.obj");
 	//ParseObj("bunny.obj");
-	//ParseObj("bunny_lowres.obj");
+	ParseObj("bunny_lowres.obj");
 	//ParseObj("cube.obj");
     ParseBezierObj("bezier-teapot.obj");
 
@@ -986,15 +1003,15 @@ void init()
     initVBO(terrainVaoID);
     
     //cobblestones
-    cobblestoneVaoID = initTerrain();
-    cobblestoneProgramID = 2;
-    initProgram(cobblestoneProgramID,
-                "cobblestone.vert",
-                "cobblestone.tesc",
-                "cobblestone.tese",
-                NULL,
-                "cobblestone.frag");
-    initVBO(cobblestoneVaoID);
+    //cobblestoneVaoID = initTerrain();
+    //cobblestoneProgramID = 2;
+    //initProgram(cobblestoneProgramID,
+    //            "cobblestone.vert",
+    //            "cobblestone.tesc",
+    //            "cobblestone.tese",
+    //            NULL,
+    //            "cobblestone.frag");
+    //initVBO(cobblestoneVaoID);
     initTexture();
 
     initUBO();
@@ -1095,66 +1112,19 @@ void display()
 
 	float angleRad = (float) (angle / 180.0) * M_PI;
 	
-	//// Compute the modeling matrix
-
-	////modelingMatrix = glm::translate(glm::mat4(1.0), glm::vec3(0.0f, -0.4f, -5.0f));
-	////modelingMatrix = glm::rotate(modelingMatrix, angleRad, glm::vec3(0.0, 1.0, 0.0));
-    //glm::mat4 matT = glm::translate(glm::mat4(1.0), glm::vec3(-0.5f, -0.4f, -5.0f));   // same as above but more clear
-    ////glm::mat4 matR = glm::rotate(glm::mat4(1.0), angleRad, glm::vec3(0.0, 1.0, 0.0));
-    //glm::mat4 matRx = glm::rotate<float>(glm::mat4(1.0), (-90. / 180.) * M_PI, glm::vec3(1.0, 0.0, 0.0));
-    //glm::mat4 matRy = glm::rotate<float>(glm::mat4(1.0), (-90. / 180.) * M_PI, glm::vec3(0.0, 1.0, 0.0));
-    //glm::mat4 matRz = glm::rotate<float>(glm::mat4(1.0), angleRad, glm::vec3(0.0, 0.0, 1.0));
-    //modelingMatrix = matRy * matRx;
-
-    //// Let's make some alternating roll rotation
-    //static float rollDeg = 0;
-    //static float changeRoll = 2.5;
-    //float rollRad = (float) (rollDeg / 180.f) * M_PI;
-    //rollDeg += changeRoll;
-    //if (rollDeg >= 10.f || rollDeg <= -10.f)
-    //{
-    //    changeRoll *= -1.f;
-    //}
-    //glm::mat4 matRoll = glm::rotate<float>(glm::mat4(1.0), rollRad, glm::vec3(1.0, 0.0, 0.0));
-
-    //// Let's make some pitch rotation
-    //static float pitchDeg = 0;
-    //static float changePitch = 0.1;
-    //float startPitch = 0;
-    //float endPitch = 90;
-    //float pitchRad = (float) (pitchDeg / 180.f) * M_PI;
-    //pitchDeg += changePitch;
-    //if (pitchDeg >= endPitch)
-    //{
-    //    changePitch = 0;
-    //}
-    ////glm::mat4 matPitch = glm::rotate<float>(glm::mat4(1.0), pitchRad, glm::vec3(0.0, 0.0, 1.0));
-    ////modelingMatrix = matRoll * matPitch * modelingMatrix; // gimbal lock
-    ////modelingMatrix = matPitch * matRoll * modelingMatrix;   // no gimbal lock
-
-    //glm::quat q0(0, 1, 0, 0); // along x
-    //glm::quat q1(0, 0, 1, 0); // along y
-    //glm::quat q = glm::mix(q0, q1, (pitchDeg - startPitch) / (endPitch - startPitch));
-
-    //float sint = sin(rollRad / 2);
-    //glm::quat rollQuat(cos(rollRad/2), sint * q.x, sint * q.y, sint * q.z);
-    //glm::quat pitchQuat(cos(pitchRad/2), 0, 0, 1 * sin(pitchRad/2));
-    ////modelingMatrix = matT * glm::toMat4(pitchQuat) * glm::toMat4(rollQuat) * modelingMatrix;
-    //modelingMatrix = matT * glm::toMat4(rollQuat) * glm::toMat4(pitchQuat) * modelingMatrix; // roll is based on pitch
-
-    //cout << rollQuat.w << " " << rollQuat.x << " " << rollQuat.y << " " << rollQuat.z << endl;
 
 	// Set the active program and the values of its uniform variables
     modelingMatrix = glm::mat4(1);
 
-    activeProgramIndex = 4;
+    activeProgramIndex = 0;
 	glUseProgram(gProgram[activeProgramIndex]);
 	//glUniformMatrix4fv(projectionMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
 	//glUniformMatrix4fv(viewingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(viewingMatrix));
 	//glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
 
 	// Draw the scene
-    //drawModel(0);
+    glUseProgram(gProgram[0]);
+    drawModel(0);
 
     if(enableFur)
     {
@@ -1166,10 +1136,10 @@ void display()
         drawModel(0);
     }
 
-    float teapotAngle = (float)(-90.f/180.f) * M_PI;
-	modelingMatrix = glm::rotate<float>(glm::mat4(1.f), teapotAngle, glm::vec3(1.0, 0.0, 0.0));
-    updateUniforms();
-    drawBezierModel(1);
+    //float teapotAngle = (float)(-90.f/180.f) * M_PI;
+	//modelingMatrix = glm::rotate<float>(glm::mat4(1.f), teapotAngle, glm::vec3(1.0, 0.0, 0.0));
+    //updateUniforms();
+    //drawBezierModel(1);
 
 	angle += 0.5;
 }
@@ -1260,27 +1230,27 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
     }
 
 
-    if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS)
-    {
-        pitch += 1.5f;
-        if (pitch > 89.0f)
-            pitch = 89.0f;
-    }
-    if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
-    {
-        pitch -= 1.5f;
-        if (pitch < -89.0f)
-            pitch = -89.0f;
-    }
+    //if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS)
+    //{
+    //    pitch += 1.5f;
+    //    if (pitch > 89.0f)
+    //        pitch = 89.0f;
+    //}
+    //if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
+    //{
+    //    pitch -= 1.5f;
+    //    if (pitch < -89.0f)
+    //        pitch = -89.0f;
+    //}
 
-    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
-    {
-        yaw += 1.5f;
-    }
-    if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
-    {
-        yaw -= 1.5f;
-    }
+    //if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
+    //{
+    //    yaw += 1.5f;
+    //}
+    //if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
+    //{
+    //    yaw -= 1.5f;
+    //}
 
     //zoom out 
     if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
@@ -1342,6 +1312,39 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
         }
     }
 
+    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS)
+    {
+        if(hairCount > 1)
+        {
+            hairCount--;
+            cout << "hairCount: " << hairCount << endl;
+        }
+    }
+    else if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
+    {
+        hairCount++;
+        cout << "hairCount: " << hairCount << endl;
+    }
+    
+    if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
+    {
+        hairLen -= 0.3;
+        cout << "hairLen: " << hairLen << endl;
+    }
+    else if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
+    {
+        
+        hairLen += 0.3;
+        cout << "hairLen: " << hairLen << endl;
+    }
+    if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS)
+    {
+        hairCurveAngle -= 0.05;
+    }
+    else if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS)
+    {
+        hairCurveAngle += 0.05;
+    }
 }
 
 void scrollCallBack(GLFWwindow* window, double xOffset, double yOffset)

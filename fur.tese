@@ -18,6 +18,14 @@ layout (std140, binding = 1) uniform tessLevels
     float levelOfDetail;
 };
 
+layout (std140, binding = 2) uniform hairParams
+{
+    float hairLen;
+    float hairThickness;
+    float hairCurveAngle;
+    uint hairCount;
+};
+
 layout ( isolines, equal_spacing, ccw) in;
 
 
@@ -83,6 +91,7 @@ void main()
                         distance(p1, p2) +
                         distance(p2, p0) ) /3.0;
 
+    hairLength *= hairLen;
     //line furs
     vec4 hairTip = hairRoot.coord + vec4(normalize(hairRoot.normal) * hairLength * 1, 0.f);
 
@@ -94,7 +103,7 @@ void main()
     
     vec3 surfNorm = triangleNormal(p0.xyz, p1.xyz, p2.xyz);//actual normal not vertex
     float alpha = acos(dot(surfNorm, hairRoot.normal)); //fur angle
-    float theta = alpha * 0.5;
+    float theta = alpha * 0.5 * hairCurveAngle;
     vec3 hairRotAxis = cross(surfNorm, hairRoot.normal);
 
     vec3 hairRootNorm = normalize(hairRoot.normal);

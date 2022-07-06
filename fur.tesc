@@ -15,6 +15,13 @@ layout (std140, binding = 1) uniform tessLevels
     float levelOfDetail;
 };
 
+layout (std140, binding = 2) uniform hairParams
+{
+    float hairLen;
+    float hairThickness;
+    float hairCurveAngle;
+    uint hairCount;
+};
 
 layout (vertices = 3) out;
 
@@ -40,19 +47,10 @@ void main()
     {//meaning the triangle is not visible
         gl_TessLevelOuter[0] = 0.f;
         gl_TessLevelOuter[1] = 0.f;
-        gl_TessLevelOuter[2] = 0.f;
-        gl_TessLevelInner[0] = 0.f;
         return;
     }
-    gl_TessLevelOuter[0] = tessOuter;
     gl_TessLevelOuter[1] = tessInner * levelOfDetail;
-    gl_TessLevelOuter[2] = tessOuter;
-    gl_TessLevelInner[0] = tessInner;
-
-    //gl_TessLevelOuter[0] = tessOuter;
-    //gl_TessLevelOuter[1] = 3.f;
-    //gl_TessLevelOuter[2] = 2.f;
-    //gl_TessLevelInner[0] = 2.f;
+    gl_TessLevelOuter[0] = float(hairCount);
 
     //shrink triangles
     vec4 mid = ( tesc_in[0].fragWorldPos +
