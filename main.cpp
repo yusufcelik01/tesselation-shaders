@@ -56,7 +56,7 @@ GLfloat tessInner = 1.0;
 GLfloat levelOfDetail = 1.0;
 
 GLuint hairCount = 1;//per triangle
-GLfloat hairLen = 1.0;//length multiplier
+GLfloat hairLen = 0.1;//length multiplier
 GLfloat hairThickness = 1.0;
 GLfloat hairCurveAngle = 1.0;
 
@@ -955,19 +955,19 @@ void init()
 	//ParseObj("teapot.obj");
 	//ParseObj("suzanne.obj");
 	//ParseObj("armadillo.obj");
-	//ParseObj("bunny.obj");
-	ParseObj("bunny_lowres.obj");
-	//ParseObj("cube.obj");
-    ParseBezierObj("bezier-teapot.obj");
+	ParseObj("bunny.obj");
+	ParseObj("cube.obj");
+	//ParseObj("bunny_lowres.obj");
+    //ParseBezierObj("bezier-teapot.obj");
 
     glEnable(GL_DEPTH_TEST);
     //initShaders();
-    initProgram(4,
-                "vert.glsl",
-                NULL,
-                NULL,
-                NULL,
-                "frag.glsl");
+    //initProgram(4,
+    //            "vert.glsl",
+    //            NULL,
+    //            NULL,
+    //            NULL,
+    //            "frag.glsl");
     initProgram(1,
                 "fur.vert",
                 "fur.tesc",
@@ -981,26 +981,26 @@ void init()
                 NULL,
                 "frag2.glsl");
     
-    initProgram(5,
-                "bezier.vert",
-                "bezier.tesc",
-                "bezier.tese",
-                NULL,
-                "bezier.frag");
+    //initProgram(5,
+    //            "bezier.vert",
+    //            "bezier.tesc",
+    //            "bezier.tese",
+    //            NULL,
+    //            "bezier.frag");
                 
     initVBO(0);
     initBezierVBO(1);
 
     //terrain
-    terrainVaoID = initTerrain();
-    terrainProgramID = 3;
-    initProgram(terrainProgramID, 
-                "terrain.vert",
-                NULL,
-                NULL,
-                "terrain.geom",
-                "terrain.frag");
-    initVBO(terrainVaoID);
+    //terrainVaoID = initTerrain();
+    //terrainProgramID = 3;
+    //initProgram(terrainProgramID, 
+    //            "terrain.vert",
+    //            NULL,
+    //            NULL,
+    //            "terrain.geom",
+    //            "terrain.frag");
+    //initVBO(terrainVaoID);
     
     //cobblestones
     //cobblestoneVaoID = initTerrain();
@@ -1012,7 +1012,7 @@ void init()
     //            NULL,
     //            "cobblestone.frag");
     //initVBO(cobblestoneVaoID);
-    initTexture();
+    //initTexture();//cobblestone tex
 
     initUBO();
     updateUniforms();
@@ -1328,13 +1328,13 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
     
     if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
     {
-        hairLen -= 0.3;
+        hairLen -= 0.008;
         cout << "hairLen: " << hairLen << endl;
     }
     else if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
     {
         
-        hairLen += 0.3;
+        hairLen += 0.008;
         cout << "hairLen: " << hairLen << endl;
     }
     if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS)

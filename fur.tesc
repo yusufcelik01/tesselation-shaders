@@ -47,10 +47,10 @@ void main()
     {//meaning the triangle is not visible
         gl_TessLevelOuter[0] = 0.f;
         gl_TessLevelOuter[1] = 0.f;
-        return;
+        //return;
     }
-    gl_TessLevelOuter[1] = tessInner * levelOfDetail;
     gl_TessLevelOuter[0] = float(hairCount);
+    gl_TessLevelOuter[1] = tessInner * levelOfDetail;
 
     //shrink triangles
     vec4 mid = ( tesc_in[0].fragWorldPos +

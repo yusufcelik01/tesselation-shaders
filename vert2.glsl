@@ -6,9 +6,6 @@ layout (std140, binding = 0) uniform matrices
     mat4 viewingMatrix;
     mat4 projectionMatrix;
     vec3 eyePos;
-    //float tessInner;
-    //float tessOuter;
-    //float levelOfDetail;
 };
 
 layout(location=0) in vec3 inVertex;
@@ -22,11 +19,6 @@ out VS_TESC_INTERFACE
 
 void main(void)
 {
-	// Compute the world coordinates of the vertex and its normal.
-	// These coordinates will be interpolated during the rasterization
-	// stage and the fragment shader will receive the interpolated
-	// coordinates.
-
 	vs_out.fragWorldPos = modelingMatrix * vec4(inVertex, 1);
 	vs_out.fragWorldNor = inverse(transpose(mat3x3(modelingMatrix))) * inNormal;
 

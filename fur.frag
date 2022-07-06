@@ -57,4 +57,5 @@ void main(void)
     //fragColor = vec4(0,1,0,1);
     //fragColor = vec4(noise3(fs_in.fragWorldPos.x/3 +fs_in.fragWorldPos.y/3 + fs_in.fragWorldPos.z/3)/2+vec3(0.5,0.5,0.5), 1.0f); 
     //fragColor = vec4(0, 0.8, 0, 1);
+    //fragColor = vec4(0.8, 0.2, 0.9, 1);
 }

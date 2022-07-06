@@ -91,7 +91,7 @@ void main()
                         distance(p1, p2) +
                         distance(p2, p0) ) /3.0;
 
-    hairLength *= hairLen;
+    hairLength = hairLen;
     //line furs
     vec4 hairTip = hairRoot.coord + vec4(normalize(hairRoot.normal) * hairLength * 1, 0.f);
 
