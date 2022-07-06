@@ -16,6 +16,7 @@ layout (std140, binding = 1) uniform tessLevels
     float tessInner;
     float tessOuter;
     float levelOfDetail;
+    int viewDependantTesselation;
 };
 
 layout ( triangles, equal_spacing, ccw) in;
@@ -32,6 +33,8 @@ out TESE_FS_INTERFACE
     vec4 fragWorldPos;
     vec3 fragWorldNor;
 } tese_out;
+
+precise tese_out;
 
 struct Vertex 
 {

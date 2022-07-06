@@ -50,6 +50,7 @@ glm::mat4 modelingMatrix;
 int activeProgramIndex = 1;
 int enableFur = 0;
 int wireframeMode = 0;
+GLint viewDependantTesselation = 1;
 
 GLfloat tessOuter = 1.0;
 GLfloat tessInner = 1.0;
@@ -879,6 +880,7 @@ void updateUniforms()
     glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 0 * sizeof(GLfloat), sizeof(GLfloat), &tessInner);
     glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 1 * sizeof(GLfloat), sizeof(GLfloat), &tessOuter);
     glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 2 * sizeof(GLfloat), sizeof(GLfloat), &levelOfDetail);
+    glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 3 * sizeof(GLfloat), sizeof(GLint), &viewDependantTesselation);
 
     //upload hair parameters
     uboOffset += uboSizes[1];
@@ -952,13 +954,13 @@ void initTexture()
 
 void init() 
 {
-	//ParseObj("teapot.obj");
+	ParseObj("teapot.obj");
 	//ParseObj("suzanne.obj");
 	//ParseObj("armadillo.obj");
-	ParseObj("bunny.obj");
-	ParseObj("cube.obj");
+	//ParseObj("bunny.obj");
+	//ParseObj("cube.obj");
 	//ParseObj("bunny_lowres.obj");
-    //ParseBezierObj("bezier-teapot.obj");
+    ParseBezierObj("bezier-teapot.obj");
 
     glEnable(GL_DEPTH_TEST);
     //initShaders();
@@ -975,18 +977,18 @@ void init()
                 NULL,
                 "fur.frag");
     initProgram(0,
-                "vert2.glsl",
+                "pn-triangles.vert",
                 "pn-triangles.tesc",
                 "pn-triangles.tese",
                 NULL,
                 "frag2.glsl");
     
-    //initProgram(5,
-    //            "bezier.vert",
-    //            "bezier.tesc",
-    //            "bezier.tese",
-    //            NULL,
-    //            "bezier.frag");
+    initProgram(5,
+                "bezier.vert",
+                "bezier.tesc",
+                "bezier.tese",
+                NULL,
+                "bezier.frag");
                 
     initVBO(0);
     initBezierVBO(1);
@@ -1016,7 +1018,10 @@ void init()
 
     initUBO();
     updateUniforms();
-
+    
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
 }
 
 void drawModel(size_t objId)
@@ -1030,6 +1035,7 @@ void drawModel(size_t objId)
 
 
     glPatchParameteri(GL_PATCH_VERTICES, 3);
+    //glDrawElements(GL_PATCHES,  3 * 350, GL_UNSIGNED_INT, 0);
     glDrawElements(GL_PATCHES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
     //if(activeProgramIndex == 1)
     //{
@@ -1185,9 +1191,19 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
     }
     else if (key == GLFW_KEY_G && action == GLFW_PRESS)
     {
-        //glShadeModel(GL_SMOOTH);
         enableFur = !enableFur;
-        //std::cout << "active program 0" << std::endl;
+    }
+    else if (key == GLFW_KEY_0 && action == GLFW_PRESS)
+    {
+        viewDependantTesselation = !viewDependantTesselation;
+        if(viewDependantTesselation)
+        {
+            cout << "view dependant tesselation: ON" << endl;
+        }
+        else
+        {
+            cout << "view dependant tesselation: OFF" << endl;
+        }
     }
     else if (key == GLFW_KEY_F && action == GLFW_PRESS)
     {
@@ -1275,7 +1291,6 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
         if((float)64 >= tessOuter + 1.0)
         {
             tessOuter += 1.0;
-            cout << "max tess level: " << (int) GL_MAX_TESS_GEN_LEVEL << endl;
             cout << "tessOuter: " << tessOuter << endl;
         }
     }
@@ -1322,8 +1337,11 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
     }
     else if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
     {
-        hairCount++;
-        cout << "hairCount: " << hairCount << endl;
+        if(hairCount < 63)
+        {
+            hairCount++;
+            cout << "hairCount: " << hairCount << endl;
+        }
     }
     
     if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)

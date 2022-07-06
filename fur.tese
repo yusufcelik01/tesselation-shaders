@@ -39,6 +39,7 @@ out TESE_FS_INTERFACE
 {
     vec4 fragWorldPos;
     vec3 fragWorldNor;
+    vec3 furColor;
 } tese_out;
 
 struct Vertex 
@@ -76,14 +77,14 @@ void main()
     triangle.vert[1].normal = tese_in[1].fragWorldNor;
     triangle.vert[2].normal = tese_in[2].fragWorldNor;
 
-    float u = gl_TessCoord.x,
-          v = gl_TessCoord.y,
-          w = gl_TessCoord.z;
+    float u = gl_TessCoord.x;
+    float v = gl_TessCoord.y;
+    //float w = gl_TessCoord.z;
 
     //
-    int hairCount = int(gl_TessLevelOuter[0]);
+    //int hairCount = int(gl_TessLevelOuter[0]);
     //int numOfSubTriangles = int(ceil(gl_TessLevelOuter[0]/3.0)+0.001);
-    int hairID = int(round(v / (1.0f/gl_TessLevelOuter[0])) + 0.1);
+    int hairID = int(round(v / (1.0f/gl_TessLevelOuter[0]))+0.001);
 
     struct Vertex hairRoot = hairVertex(hairID, triangle);
 
@@ -101,7 +102,7 @@ void main()
 
     //bezier curve furs
     
-    vec3 surfNorm = triangleNormal(p0.xyz, p1.xyz, p2.xyz);//actual normal not vertex
+    vec3 surfNorm = triangleNormal(p0.xyz, p1.xyz, p2.xyz);//actual surfnormal not vertex
     float alpha = acos(dot(surfNorm, hairRoot.normal)); //fur angle
     float theta = alpha * 0.5 * hairCurveAngle;
     vec3 hairRotAxis = cross(surfNorm, hairRoot.normal);
@@ -125,12 +126,6 @@ void main()
     theta = mix(0, theta*2, u);
     tese_out.fragWorldNor = normalize((rotateAroundAxis( theta, hairRotAxis) * vec4(hairRootNorm, 0.f)).xyz);
     gl_Position = projectionMatrix * viewingMatrix * modelingMatrix * tese_out.fragWorldPos;
-
-
-                        
-
-    
-
 
 
 
@@ -296,7 +291,7 @@ struct Vertex hairVertex(int hairID, struct Triangle triangle)
                 triangle.vert[2] = edgeMid;
                 triangle.vert[0] = center;
                 break;
-            case 0:
+            default://case 0
                 edgeMid.coord = (triangle.vert[2].coord  + triangle.vert[0].coord  ) / 2.0;
                 edgeMid.normal = (triangle.vert[2].normal + triangle.vert[0].normal  ) / 2.0;
                 

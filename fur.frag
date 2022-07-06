@@ -29,6 +29,7 @@ in TESE_FS_INTERFACE
 {
     vec4 fragWorldPos;
     vec3 fragWorldNor;
+    vec3 furColor;
 } fs_in;
 
 out vec4 fragColor;
@@ -58,4 +59,5 @@ void main(void)
     //fragColor = vec4(noise3(fs_in.fragWorldPos.x/3 +fs_in.fragWorldPos.y/3 + fs_in.fragWorldPos.z/3)/2+vec3(0.5,0.5,0.5), 1.0f); 
     //fragColor = vec4(0, 0.8, 0, 1);
     //fragColor = vec4(0.8, 0.2, 0.9, 1);
+    //fragColor = vec4(fs_in.furColor, 1);
 }
