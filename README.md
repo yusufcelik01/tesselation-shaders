@@ -55,6 +55,14 @@ To run the program in bezier teapot mode execute the program with following argu
 ```
 For now this mode only renders one objects which is the Utah teapot but it can be easily extended to render other objects.
 
+Or if you want to see 4 different objects at the same time you can run
+```
+./main --pn-all
+```
+which will render all 4 objects att the same time so that you can compare how pn-triangles work on different meshes.
+![pn-all](https://user-images.githubusercontent.com/47708508/178051627-34f68fa8-e448-404c-8c06-861b3e280be5.png)
+
+
 
 ## Comparison mode 
 You can also run the program in split screen mode with the following line for comparing two tesselation models(pn-triangles and bezier approximation) again it is only avaliable for Utah teapot.
