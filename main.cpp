@@ -18,7 +18,6 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include "helpers.hpp"
 
 #define BUFFER_OFFSET(i) ((char*)NULL + (i))
 
@@ -82,7 +81,7 @@ GLfloat tessOuter = 1.0;
 GLfloat tessInner = 1.0;
 GLfloat levelOfDetail = 1.0;
 
-GLuint hairCount = 15;//per triangle
+GLuint hairCount = 12;//per triangle
 GLfloat hairLen = 0.1;//length multiplier
 GLfloat hairDetail = 5.0;
 GLfloat hairCurveAngle = 2.4;
@@ -98,7 +97,7 @@ float pitch = 0.0f;
 
 
 
-glm::vec3 eyePos(-0.25f, 2.f, 6.0f);
+glm::vec3 eyePos(-0.25f, 2.f, 10.0f);
 glm::vec3 cameraFront(0.f, 0.f, -1.f);
 glm::vec3 cameraUp(0.f, 1.f, 0.f);
 float cameraSpeed = 0.f;
@@ -1384,11 +1383,11 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
     //zoom out 
     if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
     {
-        cameraFov += 1.5f;
+        cameraFov += 1.0f;
     }//zoom in
     else if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS)
     {
-        cameraFov -= 1.5f;
+        cameraFov -= 1.0f;
     }
 
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)

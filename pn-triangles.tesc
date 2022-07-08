@@ -149,7 +149,7 @@ void main()
     {
         precise float d = distance(vec4(eyePos, 1.f), objCenter);
 
-        precise float LOD = 30.f/(d*d) * levelOfDetail * zoomScale;
+        precise float LOD = 41.f/(d*d) * levelOfDetail * zoomScale;
 
         gl_TessLevelOuter[0] = LOD;
         gl_TessLevelOuter[1] = LOD;
