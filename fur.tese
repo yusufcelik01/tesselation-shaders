@@ -16,12 +16,14 @@ layout (std140, binding = 1) uniform tessLevels
     float tessInner;
     float tessOuter;
     float levelOfDetail;
+    int viewDependantTesselation;
+    float cameraFov;
 };
 
 layout (std140, binding = 2) uniform hairParams
 {
     float hairLen;
-    float hairThickness;
+    float hairDetail;
     float hairCurveAngle;
     uint hairCount;
 };
@@ -125,7 +127,7 @@ void main()
     //tese_out.fragWorldPos = vec4(mix(B1, B4, u), 1.f);
     theta = mix(0, theta*2, u);
     tese_out.fragWorldNor = normalize((rotateAroundAxis( theta, hairRotAxis) * vec4(hairRootNorm, 0.f)).xyz);
-    gl_Position = projectionMatrix * viewingMatrix * modelingMatrix * tese_out.fragWorldPos;
+    gl_Position = projectionMatrix * viewingMatrix * tese_out.fragWorldPos;
 
 
 

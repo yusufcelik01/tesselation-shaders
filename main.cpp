@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -31,7 +32,31 @@ struct ProgramParams
     unsigned int patchVertices;//if primitive is GL_PATCHES
 };
 
+//program flags
+enum program_mode
+{
+    PN_ONLY,
+    BEZIER_ONLY,
+    PN_VS_BEZIER,
+    PN_ALL
+} program_arg;
+
+char* objFileName = NULL;
+
 GLuint gProgram[8];
+size_t numberOfPrograms = 0;
+
+int bezierProgramIndex = -1;
+int furProgramIndex = -1;
+int pnProgramIndex = -1;
+
+
+size_t numberOfObj = 0;
+
+vector<size_t> pnObjIndices = {};
+vector<size_t> bezierObjIndices = {};
+
+
 
 int gWidth, gHeight;
 
@@ -51,15 +76,16 @@ int activeProgramIndex = 1;
 int enableFur = 0;
 int wireframeMode = 0;
 GLint viewDependantTesselation = 1;
+GLint backFaceCulling = 0;
 
 GLfloat tessOuter = 1.0;
 GLfloat tessInner = 1.0;
 GLfloat levelOfDetail = 1.0;
 
-GLuint hairCount = 1;//per triangle
+GLuint hairCount = 15;//per triangle
 GLfloat hairLen = 0.1;//length multiplier
-GLfloat hairThickness = 1.0;
-GLfloat hairCurveAngle = 1.0;
+GLfloat hairDetail = 5.0;
+GLfloat hairCurveAngle = 2.4;
 
 
 #define INITIAL_FOV 90.f
@@ -72,9 +98,10 @@ float pitch = 0.0f;
 
 
 
-glm::vec3 eyePos(0.5f, 1.f, 5.0f);
+glm::vec3 eyePos(-0.25f, 2.f, 6.0f);
 glm::vec3 cameraFront(0.f, 0.f, -1.f);
 glm::vec3 cameraUp(0.f, 1.f, 0.f);
+float cameraSpeed = 0.f;
 
 float deltaTime = 0.f; 
 float currentTime = 0.f;
@@ -119,13 +146,14 @@ struct BezierSurface
     GLuint vIndices[16];
 };
 
-size_t numberOfObj = 0;
 
 vector<Vertex> gVertices[8];
 vector<Texture> gTextures[8];
 vector<Normal> gNormals[8];
 vector<Face> gFaces[8];
 vector<BezierSurface> gSurfaces[8];
+
+glm::vec4 objCenters[8];
 
 GLuint vao[8];
 GLuint ubo[4];
@@ -148,6 +176,9 @@ unsigned char* rawImage = NULL;
 GLuint gVertexAttribBuffer[8], gIndexBuffer[8];
 GLint gInVertexLoc[8], gInNormalLoc[8];
 int gVertexDataSizeInBytes[8], gNormalDataSizeInBytes[8];
+
+
+void reshape(GLFWwindow* window, int w, int h);
 
 
 int ParseObj(const string& fileName)
@@ -227,7 +258,7 @@ int ParseObj(const string& fileName)
                 }
                 else
                 {
-                    cout << "Ignoring unidentified line in obj file: " << curLine << endl;
+                    //cout << "Ignoring unidentified line in obj file: " << curLine << endl;
                 }
             }
 
@@ -249,8 +280,9 @@ int ParseObj(const string& fileName)
     //cout << "gNormals: " << gNormals[numberOfObj].size() << endl;
 	assert(gVertices[numberOfObj].size() == gNormals[numberOfObj].size());
 
-    int temp = numberOfObj;
+    size_t temp = numberOfObj;
     numberOfObj++;
+    pnObjIndices.push_back(temp);
     return temp;
 }
 
@@ -305,7 +337,7 @@ int ParseBezierObj(const string& fileName)
                 }
                 else
                 {
-                    cout << "Ignoring unidentified line in obj file: " << curLine << endl;
+                    //cout << "Ignoring unidentified line in obj file: " << curLine << endl;
                 }
             }
 
@@ -326,8 +358,9 @@ int ParseBezierObj(const string& fileName)
     //cout << "gVertices: " << gVertices[numberOfObj].size() << endl;
     //cout << "gNormals: " << gNormals[numberOfObj].size() << endl;
 
-    int temp = numberOfObj;
+    size_t temp = numberOfObj;
     numberOfObj++;
+    bezierObjIndices.push_back(temp);
     return temp;
 }
 
@@ -487,13 +520,15 @@ GLuint createTESE(const char* shaderName)
 
 	return fs;
 }
-void initProgram(unsigned int progIndex,
-                 const char* vsFile ,
-                 const char* tcsFile,
-                 const char* tesFile,
-                 const char* gsFile ,
-                 const char* fsFile  )
+
+size_t initProgram(const char* vsFile ,
+                   const char* tcsFile,
+                   const char* tesFile,
+                   const char* gsFile ,
+                   const char* fsFile  )
 {
+    size_t progIndex = numberOfPrograms; 
+
     gProgram[progIndex] = glCreateProgram();
     GLuint vs, tcs, tes, gs, fs;
 
@@ -577,6 +612,8 @@ void initProgram(unsigned int progIndex,
 		tessInnerLoc[progIndex] = glGetUniformLocation(gProgram[progIndex], "tessInner");
 		tessOuterLoc[progIndex] = glGetUniformLocation(gProgram[progIndex], "tessOuter");
     cout << endl;
+    numberOfPrograms++;
+    return progIndex;
 }
 
 void initShaders()
@@ -706,6 +743,13 @@ void initVBO(size_t objId)
     std::cout << "maxY = " << maxY << std::endl;
     std::cout << "minZ = " << minZ << std::endl;
     std::cout << "maxZ = " << maxZ << std::endl;
+    std::cout << "total vertex count = " << gVertices[objId].size() << '\n' << std::endl;
+    
+    objCenters[objId] = glm::vec4((minX + maxX)/2.f,
+                                  (minY + maxY)/2.f,
+                                  (minZ + maxZ)/2.f,
+                                  1.f);
+
 
 	for (int i = 0; i < gNormals[objId].size(); ++i)
 	{
@@ -786,6 +830,7 @@ void initBezierVBO(size_t objId)
     std::cout << "maxY = " << maxY << std::endl;
     std::cout << "minZ = " << minZ << std::endl;
     std::cout << "maxZ = " << maxZ << std::endl;
+    std::cout << "total patch count = " << gSurfaces[objId].size() << '\n' << std::endl;
 
 	//for (int i = 0; i < gNormals[objId].size(); ++i)
 	//{
@@ -840,29 +885,48 @@ void initUBO()
     uboOffset += uboSizes[1];
     glBindBufferRange(GL_UNIFORM_BUFFER, 2, ubo[0], uboOffset, uboSizes[2]);
 
-    GLuint uniformBlockIndex;
-    GLsizei uniformBlockSize;
-    uniformBlockIndex = glGetUniformBlockIndex(gProgram[1], "matrices");
-    glGetActiveUniformBlockiv(gProgram[1], uniformBlockIndex,
-                                     GL_UNIFORM_BLOCK_DATA_SIZE,
-                                     &uniformBlockSize);
-    //cout << "matrices size: " << uniformBlockSize << endl;
+    //GLuint uniformBlockIndex;
+    //GLsizei uniformBlockSize;
+    //uniformBlockIndex = glGetUniformBlockIndex(gProgram[1], "matrices");
+    //glGetActiveUniformBlockiv(gProgram[1], uniformBlockIndex,
+    //                                 GL_UNIFORM_BLOCK_DATA_SIZE,
+    //                                 &uniformBlockSize);
+    ////cout << "matrices size: " << uniformBlockSize << endl;
 
-    uniformBlockIndex = glGetUniformBlockIndex(gProgram[1], "tessLevels");
-    glGetActiveUniformBlockiv(gProgram[1], uniformBlockIndex,
-                                     GL_UNIFORM_BLOCK_DATA_SIZE,
-                                     &uniformBlockSize);
-
+    //uniformBlockIndex = glGetUniformBlockIndex(gProgram[1], "tessLevels");
+    //glGetActiveUniformBlockiv(gProgram[1], uniformBlockIndex,
+    //                                 GL_UNIFORM_BLOCK_DATA_SIZE,
+    //                                 &uniformBlockSize);
+    //
     //cout << "tessLevelsSize:  " << uniformBlockSize << endl;
     //cout << "float " << sizeof(GLfloat) << endl;
     //cout << "uint " << sizeof(GLuint) << endl;
     //cout << "mat4 " << sizeof(glm::mat4) << endl;
     //cout << "vec3 " << sizeof(glm::vec3) << endl;
     //cout << "ubosizes " << uboSizes[0]  << endl;
+    ////// init UBO 2 
+    glGenBuffers(1, &ubo[1]);
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo[1]);
+    size_t posSizes = sizeof(glm::vec4);
+    //glBufferData(GL_UNIFORM_BUFFER, posSizes, 0, GL_DYNAMIC_DRAW);
+    glBufferData(GL_UNIFORM_BUFFER, posSizes, 0, GL_DYNAMIC_COPY);
+    
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+    glBindBufferRange(GL_UNIFORM_BUFFER, 10, ubo[1], 0, posSizes);
+}
+
+void updateObjCenterUBO(size_t objIndex)
+{
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo[1]);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec4), glm::value_ptr(objCenters[objIndex]));
+
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
 void updateUniforms()
 {
+    //glFinish();
     glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
 
     //matrices block
@@ -881,11 +945,12 @@ void updateUniforms()
     glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 1 * sizeof(GLfloat), sizeof(GLfloat), &tessOuter);
     glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 2 * sizeof(GLfloat), sizeof(GLfloat), &levelOfDetail);
     glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 3 * sizeof(GLfloat), sizeof(GLint), &viewDependantTesselation);
+    glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 4 * sizeof(GLfloat), sizeof(GLint), &cameraFov);
 
     //upload hair parameters
     uboOffset += uboSizes[1];
     glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 0 * sizeof(GLfloat), sizeof(GLfloat), &hairLen);
-    glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 1 * sizeof(GLfloat), sizeof(GLfloat), &hairThickness);
+    glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 1 * sizeof(GLfloat), sizeof(GLfloat), &hairDetail);
     glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 2 * sizeof(GLfloat), sizeof(GLfloat), &hairCurveAngle);
     glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 3 * sizeof(GLfloat), sizeof(GLuint), &hairCount);
 
@@ -909,119 +974,113 @@ int initTerrain()
     return temp;
 }
 
-void initTexture()
-{
-    char *images[3];
-    images[0] = strdup("brick.jpg");
-    images[1] = strdup("brick_BUMP.png");
-    images[2] = strdup("brick_SPEC.png");
-
-    char * uniformTexNames[3];
-    uniformTexNames[0] = strdup("cobbleStoneTex");
-    uniformTexNames[1] = strdup("cobbleStoneBumpMap");
-    uniformTexNames[2] = strdup("cobbleStoneSpecMap");
-
-    for(int i = 0; i < 3; i++)
-    {
-        imagePath = strdup(images[i]);
-        glGenTextures(1, &cobbleStoneTex[i]);
-        glActiveTexture(GL_TEXTURE0 + i);
-        glBindTexture(GL_TEXTURE_2D, cobbleStoneTex[i]);
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        int width, height, nrChannels;
-        rawImage = load_image(imagePath, &width, &height, &nrChannels);
-        //rawImage = load_image("brick.jpg", &width, &height, &nrChannels);
-        //flagAspecRat = (float)width/height;
-
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, rawImage);
-        glGenerateMipmap(GL_TEXTURE_2D);
-
-        glUseProgram(gProgram[cobblestoneProgramID]);
-        glUniform1i(glGetUniformLocation(gProgram[cobblestoneProgramID], uniformTexNames[i]), 0);
-        //std::cout << "get error: " << glGetError() << std::endl;
-
-        free(rawImage);
-        free(images[i]);
-        free(uniformTexNames[i]);
-    }
-}
+//void initTexture()
+//{
+//    char *images[3];
+//    images[0] = strdup("brick.jpg");
+//    images[1] = strdup("brick_BUMP.png");
+//    images[2] = strdup("brick_SPEC.png");
+//
+//    char * uniformTexNames[3];
+//    uniformTexNames[0] = strdup("cobbleStoneTex");
+//    uniformTexNames[1] = strdup("cobbleStoneBumpMap");
+//    uniformTexNames[2] = strdup("cobbleStoneSpecMap");
+//
+//    for(int i = 0; i < 3; i++)
+//    {
+//        imagePath = strdup(images[i]);
+//        glGenTextures(1, &cobbleStoneTex[i]);
+//        glActiveTexture(GL_TEXTURE0 + i);
+//        glBindTexture(GL_TEXTURE_2D, cobbleStoneTex[i]);
+//
+//        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+//        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+//
+//        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//
+//        int width, height, nrChannels;
+//        rawImage = load_image(imagePath, &width, &height, &nrChannels);
+//        //rawImage = load_image("brick.jpg", &width, &height, &nrChannels);
+//        //flagAspecRat = (float)width/height;
+//
+//        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, rawImage);
+//        glGenerateMipmap(GL_TEXTURE_2D);
+//
+//        glUseProgram(gProgram[cobblestoneProgramID]);
+//        glUniform1i(glGetUniformLocation(gProgram[cobblestoneProgramID], uniformTexNames[i]), 0);
+//        //std::cout << "get error: " << glGetError() << std::endl;
+//
+//        free(rawImage);
+//        free(images[i]);
+//        free(uniformTexNames[i]);
+//    }
+//}
 
 void init() 
 {
-	ParseObj("teapot.obj");
-	//ParseObj("suzanne.obj");
-	//ParseObj("armadillo.obj");
-	//ParseObj("bunny.obj");
-	//ParseObj("cube.obj");
-	//ParseObj("bunny_lowres.obj");
-    ParseBezierObj("bezier-teapot.obj");
-
     glEnable(GL_DEPTH_TEST);
-    //initShaders();
-    //initProgram(4,
-    //            "vert.glsl",
-    //            NULL,
-    //            NULL,
-    //            NULL,
-    //            "frag.glsl");
-    initProgram(1,
-                "fur.vert",
-                "fur.tesc",
-                "fur.tese",
-                NULL,
-                "fur.frag");
-    initProgram(0,
-                "pn-triangles.vert",
-                "pn-triangles.tesc",
-                "pn-triangles.tese",
-                NULL,
-                "frag2.glsl");
-    
-    initProgram(5,
-                "bezier.vert",
-                "bezier.tesc",
-                "bezier.tese",
-                NULL,
-                "bezier.frag");
-                
-    initVBO(0);
-    initBezierVBO(1);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+    if(backFaceCulling)
+    {
+        glEnable(GL_CULL_FACE);
+    }
 
-    //terrain
-    //terrainVaoID = initTerrain();
-    //terrainProgramID = 3;
-    //initProgram(terrainProgramID, 
-    //            "terrain.vert",
-    //            NULL,
-    //            NULL,
-    //            "terrain.geom",
-    //            "terrain.frag");
-    //initVBO(terrainVaoID);
+    //init programs
+    if(program_arg != BEZIER_ONLY)
+    {
+        pnProgramIndex =  initProgram("pn-triangles.vert",
+                                      "pn-triangles.tesc",
+                                      "pn-triangles.tese",
+                                      NULL,
+                                      "pn-triangles.frag");
+
+        furProgramIndex = initProgram("fur.vert",
+                                      "fur.tesc",
+                                      "fur.tese",
+                                      NULL,
+                                      "fur.frag");
+    }
     
-    //cobblestones
-    //cobblestoneVaoID = initTerrain();
-    //cobblestoneProgramID = 2;
-    //initProgram(cobblestoneProgramID,
-    //            "cobblestone.vert",
-    //            "cobblestone.tesc",
-    //            "cobblestone.tese",
-    //            NULL,
-    //            "cobblestone.frag");
-    //initVBO(cobblestoneVaoID);
-    //initTexture();//cobblestone tex
+    if(program_arg == BEZIER_ONLY || program_arg == PN_VS_BEZIER)
+    {
+        bezierProgramIndex = initProgram("bezier.vert",
+                                         "bezier.tesc",
+                                         "bezier.tese",
+                                         NULL,
+                                         "bezier.frag");
+        ParseBezierObj("bezier-teapot.obj");
+        initBezierVBO(bezierObjIndices[0]);
+    }
+    switch(program_arg)
+    {
+        case PN_ONLY:
+            ParseObj(string(objFileName));
+            break;
+        case PN_VS_BEZIER:
+            ParseObj("teapot.obj");
+            break;
+        case PN_ALL:
+            ParseObj("teapot.obj");
+            ParseObj("bunny.obj");
+            ParseObj("suzanne.obj");
+            ParseObj("armadillo.obj");
+            break;
+
+        case BEZIER_ONLY:
+            break;
+        default:
+            break;
+    }
+                
+    for(int i = 0; i < pnObjIndices.size(); i++)
+    {
+        initVBO(pnObjIndices[i]);
+    }
 
     initUBO();
     updateUniforms();
-    
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
 }
 
 void drawModel(size_t objId)
@@ -1037,24 +1096,11 @@ void drawModel(size_t objId)
     glPatchParameteri(GL_PATCH_VERTICES, 3);
     //glDrawElements(GL_PATCHES,  3 * 350, GL_UNSIGNED_INT, 0);
     glDrawElements(GL_PATCHES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
-    //if(activeProgramIndex == 1)
-    //{
-    //    //glUniform1f(tessInnerLoc[1], tessInner);
-    //    //glUniform1f(tessOuterLoc[1], tessOuter);
-    //    glPatchParameteri(GL_PATCH_VERTICES, 3);
-    //    glDrawElements(GL_PATCHES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
-    //    //glDrawElements(GL_PATCHES,  3, GL_UNSIGNED_INT, 0);
-    //}
-    //else if (activeProgramIndex == 0)
-    //{
-    //    glDrawElements(GL_TRIANGLES, gFaces[objId].size() * 3, GL_UNSIGNED_INT, 0);
-    //    //glDrawElements(GL_TRIANGLES,  3, GL_UNSIGNED_INT, 0);
-    //}
 }
 
 void drawBezierModel(size_t objId)
 {
-    glUseProgram(gProgram[5]);
+    glUseProgram(gProgram[bezierProgramIndex]);
     glBindVertexArray(vao[objId]);
 	glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer[objId]);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBuffer[objId]);
@@ -1065,89 +1111,132 @@ void drawBezierModel(size_t objId)
 
     glPatchParameteri(GL_PATCH_VERTICES, 16);
     glDrawElements(GL_PATCHES, gSurfaces[objId].size() * 16, GL_UNSIGNED_INT, 0);
-    //glDrawElements(GL_TRIANGLES,  gSurfaces[objId].size() * 16, GL_UNSIGNED_INT, 0);
-    //glDrawElements(GL_POINTS,  gSurfaces[objId].size() * 16, GL_UNSIGNED_INT, 0);
-    //glDrawElements(GL_PATCHES,  16 *1 , GL_UNSIGNED_INT, 0);
 }
 
 
-void drawCobblestone(size_t terrainId)
+//void drawCobblestone(size_t terrainId)
+//{
+//	glUseProgram(gProgram[cobblestoneProgramID]);
+//	//glUniformMatrix4fv(projectionMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
+//	//glUniformMatrix4fv(viewingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(viewingMatrix));
+//	//glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
+//	//glUniform3fv(eyePosLoc[activeProgramIndex], 1, glm::value_ptr(eyePos));
+//    /////////
+//
+//    glBindVertexArray(vao[terrainId]);
+//	glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer[terrainId]);
+//	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBuffer[terrainId]);
+//
+//	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+//	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes[terrainId]));
+//
+//	//glDrawElementsInstanced(GL_POINTS, gFaces[terrainId].size(), GL_UNSIGNED_INT, 0, 1000*1000);
+//    glPatchParameteri(GL_PATCH_VERTICES, 1);
+//	glDrawElements(GL_PATCHES, gFaces[terrainId].size(), GL_UNSIGNED_INT, 0);
+//}
+//void drawTerrain(size_t terrainId)
+//{
+//	glUseProgram(gProgram[terrainProgramID]);
+//
+//    glBindVertexArray(vao[terrainId]);
+//	glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer[terrainId]);
+//	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBuffer[terrainId]);
+//
+//	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+//	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes[terrainId]));
+//
+//	//glDrawElementsInstanced(GL_POINTS, gFaces[terrainId].size(), GL_UNSIGNED_INT, 0, 1000*1000);
+//	glDrawElementsInstanced(GL_POINTS, gFaces[terrainId].size(), GL_UNSIGNED_INT, 0, vertexCount*vertexCount);
+//}
+
+void display(GLFWwindow* window)
 {
-	glUseProgram(gProgram[cobblestoneProgramID]);
-	//glUniformMatrix4fv(projectionMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
-	//glUniformMatrix4fv(viewingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(viewingMatrix));
-	//glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
-	//glUniform3fv(eyePosLoc[activeProgramIndex], 1, glm::value_ptr(eyePos));
-    /////////
 
-    glBindVertexArray(vao[terrainId]);
-	glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer[terrainId]);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBuffer[terrainId]);
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes[terrainId]));
-
-	//glDrawElementsInstanced(GL_POINTS, gFaces[terrainId].size(), GL_UNSIGNED_INT, 0, 1000*1000);
-    glPatchParameteri(GL_PATCH_VERTICES, 1);
-	glDrawElements(GL_PATCHES, gFaces[terrainId].size(), GL_UNSIGNED_INT, 0);
-}
-void drawTerrain(size_t terrainId)
-{
-	glUseProgram(gProgram[terrainProgramID]);
-
-    glBindVertexArray(vao[terrainId]);
-	glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer[terrainId]);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBuffer[terrainId]);
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes[terrainId]));
-
-	//glDrawElementsInstanced(GL_POINTS, gFaces[terrainId].size(), GL_UNSIGNED_INT, 0, 1000*1000);
-	glDrawElementsInstanced(GL_POINTS, gFaces[terrainId].size(), GL_UNSIGNED_INT, 0, vertexCount*vertexCount);
-}
-
-void display()
-{
-
+    reshape(window, width, height);
     glClearColor(0, 0, 0, 1);
     glClearDepth(1.0f);
     glClearStencil(0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	static float angle = 0;
-
-	float angleRad = (float) (angle / 180.0) * M_PI;
-	
-
-	// Set the active program and the values of its uniform variables
+    float bezierTeapotAngle = -90.f;
+    float bezierAngleInRad = (bezierTeapotAngle/180.f)*M_PI;
+    const float dist = 5;
+    glm::mat4 matT[4];
+    matT[0]= glm::translate(glm::mat4(1.f), glm::vec3(3.5f , -5.f, -4.2f));
+    matT[1]= glm::translate(glm::mat4(1.f), glm::vec3(-2.5, -4.f, -2.2f));
+    matT[2]= glm::translate(glm::mat4(1.f), glm::vec3(2.75f,  3.5f, 0.0f));
+    matT[3]= glm::translate(glm::mat4(1.f), glm::vec3(-2  ,  3.f, 0.f));
     modelingMatrix = glm::mat4(1);
 
-    activeProgramIndex = 0;
-	glUseProgram(gProgram[activeProgramIndex]);
-	//glUniformMatrix4fv(projectionMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
-	//glUniformMatrix4fv(viewingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(viewingMatrix));
-	//glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
-
 	// Draw the scene
-    glUseProgram(gProgram[0]);
-    drawModel(0);
-
-    if(enableFur)
+    switch(program_arg)
     {
-        activeProgramIndex = 1;
-        glUseProgram(gProgram[activeProgramIndex]);
-        //glUniformMatrix4fv(projectionMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
-        //glUniformMatrix4fv(viewingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(viewingMatrix));
-        //glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
-        drawModel(0);
+        case PN_ONLY:
+            glUseProgram(gProgram[pnProgramIndex]);
+            if(strcmp("armadillo.obj", objFileName) == 0)
+            {
+                modelingMatrix = glm::rotate(glm::mat4(1.f),
+                                         float(M_PI),
+                                         glm::vec3(0.f,1.f,0.f));
+                updateUniforms();
+            }
+            updateObjCenterUBO(pnObjIndices[0]);
+            drawModel(pnObjIndices[0]);
+
+            if(enableFur)
+            {
+                glUseProgram(gProgram[furProgramIndex]);
+                drawModel(pnObjIndices[0]);
+            }
+            break;
+        case PN_VS_BEZIER:
+            glViewport(0, 0, width/2, height);
+            glUseProgram(gProgram[pnProgramIndex]);
+            drawModel(pnObjIndices[0]);
+
+            if(enableFur)
+            {
+                glUseProgram(gProgram[furProgramIndex]);
+                drawModel(pnObjIndices[0]);
+            }
+
+            glViewport(width/2, 0, width/2, height);
+            //fall through
+        case BEZIER_ONLY:
+            modelingMatrix = glm::rotate(glm::mat4(1.f),
+                                         bezierAngleInRad,
+                                         glm::vec3(1.f,0.f,0.f));
+            updateUniforms();
+            glUseProgram(gProgram[bezierProgramIndex]);
+            drawBezierModel(bezierObjIndices[0]);
+            break;
+        case PN_ALL:
+            for(int i = 0; i < pnObjIndices.size(); ++i)
+            {
+
+                modelingMatrix = glm::mat4(1.f);
+                if(i == 3)//armadillo
+                {
+                    modelingMatrix = glm::rotate(glm::mat4(1.f),
+                            float(M_PI),
+                            glm::vec3(0.f,1.f,0.f));
+                }
+                modelingMatrix = matT[i] * modelingMatrix;
+                updateUniforms();
+                glUseProgram(gProgram[pnProgramIndex]);
+                drawModel(pnObjIndices[i]);
+                if(enableFur)
+                {
+                    glUseProgram(gProgram[furProgramIndex]);
+                    drawModel(pnObjIndices[i]);
+                }
+            }
+
+            break;
+        default:
+            break;
     }
-
-    //float teapotAngle = (float)(-90.f/180.f) * M_PI;
-	//modelingMatrix = glm::rotate<float>(glm::mat4(1.f), teapotAngle, glm::vec3(1.0, 0.0, 0.0));
-    //updateUniforms();
-    //drawBezierModel(1);
-
-	angle += 0.5;
+    modelingMatrix = glm::mat4(1.f);
 }
 
 void reshape(GLFWwindow* window, int w, int h)
@@ -1163,6 +1252,8 @@ void reshape(GLFWwindow* window, int w, int h)
     //glViewport(0, 0, w/2, h);
 
     //handle euler angles
+    eyePos += cameraFront * cameraSpeed;
+
     float yawInRads = (yaw/180) * M_PI;
     float pitchInRads = (pitch/180) * M_PI;
 
@@ -1176,7 +1267,7 @@ void reshape(GLFWwindow* window, int w, int h)
 	// Use perspective projection
 	float fovyRad = (float) (cameraFov / 180.0) * M_PI;
     float aspectRat = (float) 1.0f;
-	projectionMatrix = glm::perspective(fovyRad, aspectRat, 0.0001f, 100.0f);
+	projectionMatrix = glm::perspective(fovyRad, aspectRat, 0.1f, 80.0f);
 
     viewingMatrix = glm::lookAt(eyePos,
                                 eyePos + cameraFront,
@@ -1192,6 +1283,20 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
     else if (key == GLFW_KEY_G && action == GLFW_PRESS)
     {
         enableFur = !enableFur;
+    }
+    else if (key == GLFW_KEY_9 && action == GLFW_PRESS)
+    {
+        backFaceCulling = !backFaceCulling;
+        if(backFaceCulling)
+        {
+            glEnable(GL_CULL_FACE);
+            cout << "backface culling: ON" << endl;
+        }
+        else
+        {
+            glDisable(GL_CULL_FACE);
+            cout << "backface culling: OFF" << endl;
+        }
     }
     else if (key == GLFW_KEY_0 && action == GLFW_PRESS)
     {
@@ -1219,30 +1324,38 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
         wireframeMode = !wireframeMode;
     }
 
-    const float cameraSpeed = 11.65f; // adjust accordingly
+    const float cameraSensitivity = 11.65f; // adjust accordingly
+    const float cameraAcc = 0.35f;
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     {
-        eyePos += cameraFront * cameraSpeed * deltaTime;
+        //eyePos += cameraFront * cameraSensitivity * deltaTime;
+        cameraSpeed += cameraAcc * deltaTime;
     }
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     {
-        eyePos -= cameraFront * cameraSpeed * deltaTime;
+        //eyePos -= cameraFront * cameraSensitivity * deltaTime;
+        cameraSpeed -= cameraAcc * deltaTime;
+    }
+    if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
+    {
+        //eyePos -= cameraFront * cameraSensitivity * deltaTime;
+        cameraSpeed = 0.f;
     }
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
     {
-        eyePos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed * deltaTime;
+        eyePos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSensitivity * deltaTime;
     }
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
     {
-        eyePos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed * deltaTime;
+        eyePos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSensitivity * deltaTime;
     }
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
     {
-        eyePos -= glm::normalize(cameraUp) * cameraSpeed * deltaTime;
+        eyePos -= glm::normalize(cameraUp) * cameraSensitivity * deltaTime;
     }
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
     {
-        eyePos += glm::normalize(cameraUp) * cameraSpeed * deltaTime;
+        eyePos += glm::normalize(cameraUp) * cameraSensitivity * deltaTime;
     }
 
 
@@ -1344,6 +1457,19 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
         }
     }
     
+    if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS)
+    {
+        if(hairDetail > 1.f)
+        {
+            hairDetail -= 1.0;
+            cout << "hairDetail: " << hairDetail << endl;
+        }
+    }
+    if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS)
+    {
+        hairDetail += 1.0;
+        cout << "hairDetail: " << hairDetail<< endl;
+    }
     if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
     {
         hairLen -= 0.008;
@@ -1351,7 +1477,6 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
     }
     else if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
     {
-        
         hairLen += 0.008;
         cout << "hairLen: " << hairLen << endl;
     }
@@ -1421,8 +1546,7 @@ void mainLoop(GLFWwindow* window)
         lastTime = currentTime;
         currentTime = glfwGetTime();
 
-        reshape(window, width, height);
-        display();
+        display(window);
         //drawTerrain(terrainVaoID);
         //drawCobblestone(cobblestoneVaoID);
         glfwSwapBuffers(window);
@@ -1447,8 +1571,50 @@ void APIENTRY messageCallBack(GLenum source,
             type, severity, message );
 }
 
+
+
+
 int main(int argc, char** argv)   // Create Main Function For Bringing It All Together
 {
+    if(argc > 1) 
+    {
+        if(strcmp(argv[1], "--pn") == 0)
+        {
+            program_arg = PN_ONLY;
+            if(argc > 2 )//check filename
+            {
+                if(access(argv[2], R_OK) == 0)
+                {
+                    objFileName = strdup(argv[2]);
+                }
+            }
+        }
+        else if(strcmp(argv[1], "--bezier") == 0)
+        {
+            program_arg = BEZIER_ONLY;
+        }
+        else if(strcmp(argv[1], "--teapot-cmp") == 0)
+        {
+            program_arg = PN_VS_BEZIER;
+        }
+        else if(strcmp(argv[1], "--pn-all") == 0)
+        {
+            program_arg = PN_ALL;
+        }
+        else
+        {
+            program_arg = PN_ONLY;
+        }
+    }
+    else
+    {
+            program_arg = PN_ONLY;
+    }
+    if(objFileName == NULL)
+    {
+        objFileName = strdup("bunny.obj");
+    }
+
     GLFWwindow* window;
     if (!glfwInit())
     {
@@ -1466,7 +1632,6 @@ int main(int argc, char** argv)   // Create Main Function For Bringing It All To
     //TODO disable debug 
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);//TODO remove for the final program
 
-    //int width = 640, height = 480;
     window = glfwCreateWindow(width, height, "Simple Example", NULL, NULL);
 
     if (!window)

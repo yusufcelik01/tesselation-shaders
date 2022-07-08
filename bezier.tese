@@ -17,9 +17,11 @@ layout (std140, binding = 1) uniform tessLevels
     float tessInner;
     float tessOuter;
     float levelOfDetail;
+    int viewDependantTesselation;
+    float cameraFov;
 };
 
-layout ( quads, equal_spacing, ccw) in;
+layout ( quads, equal_spacing, cw) in;
 
 
 in TESC_TESE_INTERFACE
@@ -72,44 +74,11 @@ void main()
             dv += bern(i, u+ e1/3.0) * bern(j, v+e2/2.0) * tese_in[i*4 + j].fragWorldPos;
         }
     }
-    //if(u > 0.5)
-    //{
-    //    e = -EPSILON;
-    //    dir = -dir;
-    //}
-    //else
-    //{
-    //    e = EPSILON;
-    //}
-    //for(int i = 0; i <= 3; ++i)
-    //{
-    //    for(int j = 0; j <= 3; ++j)
-    //    {
-    //        du += bern(i, u+e) * bern(j, v) * tese_in[i*4 + j].fragWorldPos;
-    //    }
-    //}
-
-    //if(v > 0.5)
-    //{
-    //    e = -EPSILON;
-    //    dir = -dir;
-    //}
-    //else
-    //{
-    //    e = EPSILON;
-    //}
-    //for(int i = 0; i <= 3; ++i)
-    //{
-    //    for(int j = 0; j <= 3; ++j)
-    //    {
-    //        dv += bern(i, u) * bern(j, v+e) * tese_in[i*4 + j].fragWorldPos;
-    //    }
-    //}
     
     //vert = mix(mix(tese_in[0 ].fragWorldPos, tese_in[3 ].fragWorldPos, u),
     //           mix(tese_in[12].fragWorldPos, tese_in[15].fragWorldPos, u), v);
 
-    
+    //
     //vert = mix(mix(tese_in[0 ].fragWorldPos, tese_in[3 ].fragWorldPos, u),
     //           mix(tese_in[8 ].fragWorldPos, tese_in[11].fragWorldPos, u), v);
     tese_out.fragWorldPos = vec4(vert,1);

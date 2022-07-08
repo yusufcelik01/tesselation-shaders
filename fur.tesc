@@ -13,12 +13,14 @@ layout (std140, binding = 1) uniform tessLevels
     float tessInner;
     float tessOuter;
     float levelOfDetail;
+    int viewDependantTesselation;
+    float cameraFov;
 };
 
 layout (std140, binding = 2) uniform hairParams
 {
     float hairLen;
-    float hairThickness;
+    float hairDetail;
     float hairCurveAngle;
     uint hairCount;
 };
@@ -44,31 +46,36 @@ void main()
     if( !isVisible(gl_in[0].gl_Position) &&
         !isVisible(gl_in[1].gl_Position) &&
         !isVisible(gl_in[2].gl_Position)   )
-    {//meaning the triangle is not visible
-        gl_TessLevelOuter[0] = 0.f;
-        gl_TessLevelOuter[1] = 0.f;
-        //return;
+    {//meaning the triangle vertices are not visible
+     //but its edges may be
+        gl_TessLevelOuter[0] = 1.f;
+        gl_TessLevelOuter[1] = 1.f;
     }
-    gl_TessLevelOuter[0] = float(hairCount);
-    gl_TessLevelOuter[1] = tessInner * levelOfDetail;
+    if(viewDependantTesselation == 1)
+    {
+        precise float zoomScale =  90.f/cameraFov;
+        
+        vec4 avg = vec4(0, 0, 0, 0);
+        avg += tesc_in[0].fragWorldPos;
+        avg += tesc_in[1].fragWorldPos;
+        avg += tesc_in[2].fragWorldPos;
+        avg = avg/3.f;
+        precise float d = distance(avg, vec4(eyePos, 1.f));
+        precise float viewLOD = 40/(d*d) * zoomScale;
+        gl_TessLevelOuter[0] = float(hairCount);
+        gl_TessLevelOuter[1] = hairDetail * levelOfDetail * viewLOD;
 
-    //shrink triangles
-    vec4 mid = ( tesc_in[0].fragWorldPos +
-                 tesc_in[1].fragWorldPos +
-                 tesc_in[2].fragWorldPos ) / 3.f;
-    
+    }
+    else
+    {
+        gl_TessLevelOuter[0] = float(hairCount);
+        gl_TessLevelOuter[1] = hairDetail * levelOfDetail;
+    }
 
 
     tesc_out[gl_InvocationID].fragWorldPos = tesc_in[gl_InvocationID].fragWorldPos;
     tesc_out[gl_InvocationID].fragWorldNor = tesc_in[gl_InvocationID].fragWorldNor;
     gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
-
-    //tesc_out[gl_InvocationID].fragWorldPos= mix(tesc_in[gl_InvocationID].fragWorldPos, mid, 0.25);
-    //mid = ( gl_in[0].gl_Position +
-    //        gl_in[1].gl_Position +
-    //        gl_in[2].gl_Position ) / 3.f;
-    //gl_out[gl_InvocationID].gl_Position = mix(gl_in[gl_InvocationID].gl_Position, mid, 0.25);
-    
 }
 
 /*

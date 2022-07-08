@@ -6,9 +6,6 @@ layout (std140, binding = 0) uniform matrices
     mat4 viewingMatrix;
     mat4 projectionMatrix;
     vec3 eyePos;
-    //float tessInner;
-    //float tessOuter;
-    //float levelOfDetail;
 };
 
 layout (std140, binding = 1) uniform tessLevels
@@ -17,6 +14,13 @@ layout (std140, binding = 1) uniform tessLevels
     float tessOuter;
     float levelOfDetail;
     int viewDependantTesselation;
+    float cameraFov;
+};
+
+
+layout (std140, binding = 10) uniform objData
+{
+    vec4 objCenter;
 };
 
 layout (vertices = 3) out;
@@ -42,20 +46,21 @@ precise tesc_out;
 
 void main()
 {
-    //if( !isVisible(gl_in[0].gl_Position) &&
-    //    !isVisible(gl_in[1].gl_Position) &&
-    //    !isVisible(gl_in[2].gl_Position) //&&
-    //    //!lineCvvIntersection(gl_in[0].gl_Position, gl_in[1].gl_Position)  &&
-    //    //!lineCvvIntersection(gl_in[1].gl_Position, gl_in[2].gl_Position)  &&
-    //    //!lineCvvIntersection(gl_in[2].gl_Position, gl_in[0].gl_Position)  
-    //    )
-    //{//meaning the triangle is not visible
-    // //discard it by not generating geometry
-    //    gl_TessLevelOuter[0] = 0.f;
-    //    gl_TessLevelOuter[1] = 0.f;
-    //    gl_TessLevelOuter[2] = 0.f;
-    //    gl_TessLevelInner[0] = 0.f;
-    //}
+    precise float zoomScale = 90.f/cameraFov;
+    if( !isVisible(gl_in[0].gl_Position) &&
+        !isVisible(gl_in[1].gl_Position) &&
+        !isVisible(gl_in[2].gl_Position) //&&
+        //!lineCvvIntersection(gl_in[0].gl_Position, gl_in[1].gl_Position)  &&
+        //!lineCvvIntersection(gl_in[1].gl_Position, gl_in[2].gl_Position)  &&
+        //!lineCvvIntersection(gl_in[2].gl_Position, gl_in[0].gl_Position)  
+        )
+    {//meaning the triangle is not visible
+     //discard it by not generating geometry
+        gl_TessLevelOuter[0] = 1.f;
+        gl_TessLevelOuter[1] = 1.f;
+        gl_TessLevelOuter[2] = 1.f;
+        gl_TessLevelInner[0] = 1.f;
+    }
     if(viewDependantTesselation == 0)
     {
         gl_TessLevelOuter[0] = tessOuter * levelOfDetail;
@@ -63,8 +68,9 @@ void main()
         gl_TessLevelOuter[2] = tessOuter * levelOfDetail;
         gl_TessLevelInner[0] = tessInner * levelOfDetail;
     }
-    else if (gl_InvocationID == 0)
+    else if( false )
     {
+
         precise vec4 edge[3];
         precise float dist[3];
         precise float tessOut[3];
@@ -74,10 +80,13 @@ void main()
             //edge[i] = (tesc_in[i].fragWorldPos +
             //           tesc_in[(i-1)+3%3].fragWorldPos  )/2.f;
             //edge[i] = (p0 + p1 )/2.f;
+    //float tessInner;
+    //float tessOuter;
+    //float levelOfDetail;
             //dist[i] = distance(edge[i], vec4(eyePos,1.f));
 
-            float d1 = distance(tesc_in[i].fragWorldPos, vec4(eyePos, 1.f));
-            float d2 = distance(tesc_in[(i-1)+3%3].fragWorldPos, vec4(eyePos, 1.f));
+            precise float d1 = distance(tesc_in[i].fragWorldPos, vec4(eyePos, 1.f));
+            precise float d2 = distance(tesc_in[(i-1)+3%3].fragWorldPos, vec4(eyePos, 1.f));
 
             if( d1 > d2 )
             {
@@ -88,7 +97,20 @@ void main()
                 dist[i] = d1;
             }
 
-            precise float tessLOD = 4.f/(dist[i]) *levelOfDetail;
+            //vec4 p0 = gl_in[i].gl_Position;
+            //vec4 p1 = gl_in[(i-1)+3%3].gl_Position;
+
+            //if( (p0.z/ p0.w) > (p1.z / p1.w))
+            //{
+            //    dist[i] = p0.z /p0.w;
+            //}
+            //else 
+            //{
+            //    dist[i] = p1.z /p1.w ;
+            //}
+            //dist[i] = 1.f/abs(dist[i]);
+
+            precise float tessLOD = 40.f/(dist[i]*dist[i]) *levelOfDetail * zoomScale;
 
             //gl_TessLevelOuter[i] = tessLOD;
             tessOut[i] = tessLOD;
@@ -98,9 +120,9 @@ void main()
         gl_TessLevelInner[0] = tessLodAvg;
         //gl_TessLevelInner[0] = 1.f;
 
-        gl_TessLevelOuter[0] = tessOut[0];
-        gl_TessLevelOuter[1] = tessOut[1];
-        gl_TessLevelOuter[2] = tessOut[2];
+        gl_TessLevelOuter[0] = ceil(tessOut[0]);
+        gl_TessLevelOuter[1] = ceil(tessOut[1]);
+        gl_TessLevelOuter[2] = ceil(tessOut[2]);
 
         //gl_TessLevelOuter[0] = tessOut[0];
         //gl_TessLevelOuter[1] = tessOut[2];
@@ -123,6 +145,20 @@ void main()
         //gl_TessLevelOuter[2] = tessOut[1];
 
     }
+    else 
+    {
+        precise float d = distance(vec4(eyePos, 1.f), objCenter);
+
+        precise float LOD = 30.f/(d*d) * levelOfDetail * zoomScale;
+
+        gl_TessLevelOuter[0] = LOD;
+        gl_TessLevelOuter[1] = LOD;
+        gl_TessLevelOuter[2] = LOD;
+        gl_TessLevelInner[0] = LOD ;
+    }
+
+
+
 
 
     tesc_out[gl_InvocationID].fragWorldPos = tesc_in[gl_InvocationID].fragWorldPos;

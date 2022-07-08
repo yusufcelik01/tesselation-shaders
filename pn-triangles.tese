@@ -17,9 +17,12 @@ layout (std140, binding = 1) uniform tessLevels
     float tessOuter;
     float levelOfDetail;
     int viewDependantTesselation;
+    float cameraFov;
 };
 
+
 layout ( triangles, equal_spacing, ccw) in;
+//layout ( triangles, fractional_odd_spacing, ccw) in;
 
 
 in TESC_TESE_INTERFACE
@@ -114,8 +117,8 @@ void main()
                             n110*w*u + n011*u*v + n101*w*v;
 
     //TODO set fragWorldPos
-    gl_Position = projectionMatrix * viewingMatrix * modelingMatrix *
-                        tese_out.fragWorldPos;
+    
+    gl_Position = projectionMatrix * viewingMatrix * tese_out.fragWorldPos;
 }
 
 
