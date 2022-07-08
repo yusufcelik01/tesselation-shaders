@@ -1587,6 +1587,10 @@ int main(int argc, char** argv)   // Create Main Function For Bringing It All To
                 {
                     objFileName = strdup(argv[2]);
                 }
+                else
+                {
+                    cerr << "Failed find the file: " << argv[2] << '\n' << endl;
+                }
             }
         }
         else if(strcmp(argv[1], "--bezier") == 0)
@@ -1630,7 +1634,7 @@ int main(int argc, char** argv)   // Create Main Function For Bringing It All To
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
     //TODO disable debug 
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);//TODO remove for the final program
+    //glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);//TODO remove for the final program
 
     window = glfwCreateWindow(width, height, "Simple Example", NULL, NULL);
 
@@ -1663,8 +1667,8 @@ int main(int argc, char** argv)   // Create Main Function For Bringing It All To
     glfwSetWindowSizeCallback(window, reshape);
     glfwSetScrollCallback(window, scrollCallBack);
 
-    glEnable(GL_DEBUG_OUTPUT);
-    glDebugMessageCallbackARB(messageCallBack, 0);
+    //glEnable(GL_DEBUG_OUTPUT);
+    //glDebugMessageCallbackARB(messageCallBack, 0);
 
     reshape(window, width, height); // need to call this once ourselves
     mainLoop(window); // this does not return unless the window is closed
