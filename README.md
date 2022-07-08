@@ -1,6 +1,6 @@
 Dear ceng469 TA and instructor. You don't have to read this readme as plain text. I am planning to share this project as a public repository after this course is over so you can follow the link for a more human readable readme with images and all.
 
-[github repository](https://github.com/yusufcelik01/tesselation-shaders)
+[github repository](https://github.com/yusufcelik01/tesselation-shaders#tesselation-shaders)
 
 (Obviously these lines will be removed after you grade it.)
 
