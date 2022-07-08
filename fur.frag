@@ -52,6 +52,7 @@ void main(void)
 	float sinTL = length(cross(T, L)); // for diffuse component
 	float sinTH = length(cross(T, H)); // for specular component
 
+    kd = fs_in.furColor;
 	vec3 diffuseColor = I * kd * max(0, sinTL);
 	vec3 specularColor = I * ks * pow(max(0, sinTH), 700);
 	vec3 ambientColor = Iamb * ka;
