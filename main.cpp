@@ -1283,7 +1283,7 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
     {
         enableFur = !enableFur;
     }
-    else if (key == GLFW_KEY_9 && action == GLFW_PRESS)
+    else if (key == GLFW_KEY_3 && action == GLFW_PRESS)
     {
         backFaceCulling = !backFaceCulling;
         if(backFaceCulling)
@@ -1297,7 +1297,7 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
             cout << "backface culling: OFF" << endl;
         }
     }
-    else if (key == GLFW_KEY_0 && action == GLFW_PRESS)
+    else if (key == GLFW_KEY_1 && action == GLFW_PRESS)
     {
         viewDependantTesselation = !viewDependantTesselation;
         if(viewDependantTesselation)
@@ -1309,7 +1309,7 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
             cout << "view dependant tesselation: OFF" << endl;
         }
     }
-    else if (key == GLFW_KEY_F && action == GLFW_PRESS)
+    else if (key == GLFW_KEY_2 && action == GLFW_PRESS)
     {
 
         if(wireframeMode)
