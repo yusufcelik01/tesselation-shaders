@@ -7,7 +7,7 @@ Dear ceng469 TA and instructor. You don't have to read this readme as plain text
 
 # Tesselation-shaders
 
-This project is an introduction to tesselation shaders for me. In this project I have implemented pn-triangles subdivision algorithm and and bezier surfaces using OpenGL's tesselation shaders. I have also implemented a very simple fur rendering again using tesslation shaders.
+This project is an introduction to tesselation shaders for me. In this project I have implemented pn-triangles subdivision algorithm and and bezier surfaces using OpenGL's tesselation shaders. I have also wrote a very simple set of fur rendering shaders.
 
 ## Build 
 Required libraries to build:
@@ -20,7 +20,7 @@ Just clone the repository to a directory and run
 ```
 make
 ```
-and it will compiled and ready to run.
+and it will compiled and ready to run. 
 
 ## PN-Triangles
 If you want to run the program in deafult mode which is pn-triangles mode you can just type
@@ -43,7 +43,7 @@ teapot.obj
 suzanne.obj
 armadillo.obj
 ```
-but you can give other .obj files as well but they have to have vertex normals and their vertex id and vertex normal id must match.
+but you can give other .obj files as well but they have to have vertex normals and their vertex id and vertex normal id must match. The program will render the objects far and start with view dependant tesselation enabled from eye so that the user can see how moving towards/away from the object or zooming in or out affects tesselation. To disable view dependant tesselation or use other keybinds see [keybinds](https://github.com/yusufcelik01/tesselation-shaders/new/main?readme=1#keybinds-and-mouse-controls)
 
 ## Bezier patch mode
 
@@ -74,7 +74,7 @@ The program is also able to render fur. To enable/disable fur rendering on the o
 
 ![bunny-fur](https://user-images.githubusercontent.com/47708508/178043296-f1a0c510-280d-4fe2-bdaf-c220af05cc1f.png)
 
-You can also change fur settings with keybinds. To see the full controls [keybnids](https://github.com/yusufcelik01/tesselation-shaders/new/main?readme=1#keybinds-and-mouse-controls)
+You can also change fur settings with keybinds. To see the full controls [keybinds](https://github.com/yusufcelik01/tesselation-shaders/new/main?readme=1#keybinds-and-mouse-controls)
 
 ## Keybinds and mouse controls
 Firstly you can change the gaze direction by moving the mouse around while holding the right mouse button and use the mouse scroll for zooming in or out. You can also use the Z and X keys for zooming out or in perpectively.
@@ -93,8 +93,8 @@ Full controls are explained below.
   - To move the camera along the up vector direction up and down press **E/Q** respectively
   - To move the camera along right vector press **D** or press **A** to move left
   - To add the camera along the positive gaze direction press **W** for negative direction press **S** 
-    - **notice that the keys above move the camera slightly and stops when you stop pressing them but W/S keys changes camera speed so in order to stop the camera you have to add equal amount of speed in the opposite direction or you can just press C and camera speed will be set to 0 **
-  - To stop the camera press C** (sets the camera speed to 0)
+    - notice that the keys above move the camera slightly and stops when you stop pressing them but W/S keys changes camera speed so in order to stop the camera you have to add equal amount of speed in the opposite direction or you can just press C and camera speed will be set to 0
+  - To stop the camera press C (sets the camera speed to 0)
   
 - Level of detail controls
   - To toggle enable/disable view dependant tesselation press **1**
