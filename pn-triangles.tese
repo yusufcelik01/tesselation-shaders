@@ -116,8 +116,6 @@ void main()
     tese_out.fragWorldNor = n200*w*w + n020*u*u + n002*v*v + 
                             n110*w*u + n011*u*v + n101*w*v;
 
-    //TODO set fragWorldPos
-    
     gl_Position = projectionMatrix * viewingMatrix * tese_out.fragWorldPos;
 }
 

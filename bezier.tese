@@ -74,39 +74,10 @@ void main()
             dv += bern(i, u+ e1/3.0) * bern(j, v+e2/2.0) * tese_in[i*4 + j].fragWorldPos;
         }
     }
-    
-    //vert = mix(mix(tese_in[0 ].fragWorldPos, tese_in[3 ].fragWorldPos, u),
-    //           mix(tese_in[12].fragWorldPos, tese_in[15].fragWorldPos, u), v);
-
-    //
-    //vert = mix(mix(tese_in[0 ].fragWorldPos, tese_in[3 ].fragWorldPos, u),
-    //           mix(tese_in[8 ].fragWorldPos, tese_in[11].fragWorldPos, u), v);
     tese_out.fragWorldPos = vec4(vert,1);
     tese_out.fragWorldNor = cross(dv-vert, du-vert) *dir;
 
     gl_Position = projectionMatrix * viewingMatrix * tese_out.fragWorldPos;
-}
-
-
-int factorial(int x)
-{
-    if(x < 2)
-    {
-        return 1;
-    }
-    int acc = 1;
-    while(x > 1)
-    {
-        acc *= x;
-        x--;
-    }
-    return acc;
-}
-
-
-int combination(int n, int m)
-{
-    return factorial(n)/(factorial(m)*factorial(n-m));
 }
 
 

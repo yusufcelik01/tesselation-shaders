@@ -110,7 +110,7 @@ void main()
             //}
             //dist[i] = 1.f/abs(dist[i]);
 
-            precise float tessLOD = 40.f/(dist[i]*dist[i]) *levelOfDetail * zoomScale;
+            precise float tessLOD = 30.f/(dist[i]*dist[i]) *levelOfDetail * zoomScale;
 
             //gl_TessLevelOuter[i] = tessLOD;
             tessOut[i] = tessLOD;
