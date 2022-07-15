@@ -77,7 +77,7 @@ The program is also able to render fur. To enable/disable fur rendering on the o
 
 You can also change fur settings with keybinds. To see the full controls [keybinds](https://github.com/yusufcelik01/tesselation-shaders/new/main?readme=1#keybinds-and-mouse-controls)
 
-If you want you can even give color to furs. The good part is color is defined by the good old perlin noise so we have interesting looking bunnies.![perlin-colored-fur](https://user-images.githubusercontent.com/47708508/179267001-3a2125ac-e41d-40aa-91df-997fe7e22b77.png)
+If you want you can even give color to furs. The good part about it is, furs are colored by the good old perlin noise so we have interesting, maybe even psychedelic, looking bunnies.![perlin-colored-fur](https://user-images.githubusercontent.com/47708508/179267001-3a2125ac-e41d-40aa-91df-997fe7e22b77.png)
 
 
 ## Keybinds and mouse controls
