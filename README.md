@@ -77,6 +77,9 @@ The program is also able to render fur. To enable/disable fur rendering on the o
 
 You can also change fur settings with keybinds. To see the full controls [keybinds](https://github.com/yusufcelik01/tesselation-shaders/new/main?readme=1#keybinds-and-mouse-controls)
 
+If you want you can even give color to furs. The good part is color is defined by the good old perlin noise so we have interesting looking bunnies.![perlin-colored-fur](https://user-images.githubusercontent.com/47708508/179267001-3a2125ac-e41d-40aa-91df-997fe7e22b77.png)
+
+
 ## Keybinds and mouse controls
 Firstly you can change the gaze direction by moving the mouse around while holding the right mouse button and use the mouse scroll for zooming in or out. You can also use the Z and X keys for zooming out or in perpectively.
 
@@ -107,6 +110,8 @@ Full controls are explained below.
   
 - Fur Controls
   - To enable/disable furs toggle **G** 
+  - To enable/disable perlin noise on fur's color press **0**
+  - To decrease/increase turbulance value of perlin noise press **8/9**
   - To decrease/increase fur length use **K/L**
   - To decrease/increase number of hairs per triangle press **H/J**
   - To decrease/increase level of detail on only furs press **V/B**
