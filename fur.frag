@@ -17,15 +17,20 @@ layout (std140, binding = 0) uniform matrices
     vec3 eyePos;
 };
 
-layout (std140, binding = 1) uniform tessLevels
-{
-    float tessInner;
-    float tessOuter;
-    float levelOfDetail;
-    int viewDependantTesselation;
-    float cameraFov;
-};
+//layout (std140, binding = 1) uniform tessLevels
+//{
+//    float tessInner;
+//    float tessOuter;
+//    float levelOfDetail;
+//    int viewDependantTesselation;
+//    float cameraFov;
+//};
 
+layout (std140, binding = 3) uniform furColorParams
+{
+    int enableFurColor;
+    float  furColorPerlinParam;
+};
 
 in TESE_FS_INTERFACE
 {
@@ -52,7 +57,10 @@ void main(void)
 	float sinTL = length(cross(T, L)); // for diffuse component
 	float sinTH = length(cross(T, H)); // for specular component
 
-    kd = fs_in.furColor;
+    if(enableFurColor == 1)
+    {
+        kd = fs_in.furColor;
+    }
 	vec3 diffuseColor = I * kd * max(0, sinTL);
 	vec3 specularColor = I * ks * pow(max(0, sinTH), 700);
 	vec3 ambientColor = Iamb * ka;

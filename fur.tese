@@ -28,6 +28,12 @@ layout (std140, binding = 2) uniform hairParams
     uint hairCount;
 };
 
+layout (std140, binding = 3) uniform furColorParams
+{
+    int enableFurColor;
+    float  furColorPerlinParam;
+};
+
 layout ( isolines, equal_spacing, ccw) in;
 
 
@@ -60,6 +66,7 @@ mat4 rotateX(float angle);
 mat4 rotateAroundAxis(float angle, vec3 u);
 struct Vertex hairVertex(int hairID, struct Triangle triangle);
 
+float fade(float);
 float perlinNoise(vec3);
 vec3 sampleRainbow(float u);
 
@@ -133,7 +140,24 @@ void main()
     gl_Position = projectionMatrix * viewingMatrix * tese_out.fragWorldPos;
 
 
-    tese_out.furColor = sampleRainbow(perlinNoise(tese_out.fragWorldPos.xyz));
+    //set fur color
+    vec3 noiseSampler = pow(2, furColorPerlinParam) * tese_out.fragWorldPos.xyz;
+    tese_out.furColor = sampleRainbow(perlinNoise(noiseSampler));
+    float t = hairLength * u;
+    //tese_out.furColor = sampleRainbow(perlinNoise(vec3(u,u,u)));
+    //tese_out.furColor = sampleRainbow(perlinNoise(vec3(v,v,v)));
+    //tese_out.furColor = sampleRainbow(perlinNoise(vec3(t,t,t)));
+    vec3 enbyColors[4] = 
+    {
+        vec3(0, 0, 0),
+        vec3(154, 86, 207)/255.f,
+        vec3(1, 1, 1),
+        vec3(254, 221, 0)/255.f
+    };
+    float perlinValue = perlinNoise(noiseSampler);
+    perlinValue = fade(perlinValue);
+    tese_out.furColor = enbyColors[int(4* perlinValue)];
+    tese_out.furColor = sampleRainbow(perlinNoise(noiseSampler));
 }
 
 
@@ -175,37 +199,6 @@ mat4 rotateAroundAxis(float angle, vec3 u)
 
 
 
-struct Vertex getHairRootCoord(int hairID, int numberOfHairs, struct Triangle triangle)
-{
-    if(hairID == 0)
-    {
-        struct Vertex vertex;
-        vertex.coord = (triangle.vert[0].coord + triangle.vert[1].coord + triangle.vert[2].coord  ) / 3.0;
-        vertex.normal = (triangle.vert[0].normal + triangle.vert[1].normal + triangle.vert[2].normal  ) / 3.0;
-        return  vertex;
-    }
-    int numberOfTriangles = 1;
-    int numberOfRoots = 4; //fur roots
-    int currTriangleRoots = 6;
-    int hairTriangle = -1;
-    int hairPosOnTriangle = -1;
-    while( numberOfRoots < numberOfHairs )
-    {
-        if(numberOfRoots > hairID && hairTriangle == -1)
-        {
-            hairTriangle = numberOfTriangles;
-        }
-        numberOfRoots += currTriangleRoots;
-        numberOfTriangles++;
-        currTriangleRoots += 3;
-    }
-
-    //int corner = 
-    struct Vertex vertex;
-    vertex.coord = (triangle.vert[0].coord + triangle.vert[1].coord + triangle.vert[2].coord  ) / 3.0;
-    vertex.normal = (triangle.vert[0].normal + triangle.vert[1].normal + triangle.vert[2].normal  ) / 3.0;
-    return  vertex;
-}
 
 
 struct Vertex hairVertex(int hairID, struct Triangle triangle)
@@ -634,6 +627,6 @@ const vec3 rainbow[256] = {
 };
 
 
-    //return rainbow[int(u*255)];
-    return rainbow[int(max(0, u*145 )) ];
+    return rainbow[int(u*255)];
+    //return rainbow[int(max(0, u*145 )) ];
 }

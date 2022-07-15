@@ -81,10 +81,12 @@ GLfloat tessOuter = 1.0;
 GLfloat tessInner = 1.0;
 GLfloat levelOfDetail = 1.0;
 
-GLuint hairCount = 12;//per triangle
+GLuint hairCount = 30;//per triangle
 GLfloat hairLen = 0.1;//length multiplier
 GLfloat hairDetail = 5.0;
 GLfloat hairCurveAngle = 2.4;
+GLint enableFurColor = 0;//0 for gray, 1 for perlin colored furs
+GLfloat furColorPerlinParam = 1.f;
 
 
 #define INITIAL_FOV 90.f
@@ -870,19 +872,34 @@ void initUBO()
     uboSizes[0] = sizeof(glm::mat4) * 4 ;//matrices
     //uboSizes[1] = sizeof(GLfloat)*3;//tessLevels
     uboSizes[1] = sizeof(glm::mat4) * 4;//tessLevels
-    uboSizes[2] = sizeof(GLfloat)*8 + sizeof(GLuint)+ sizeof(glm::mat4);//hairParams
+    //uboSizes[2] = sizeof(GLfloat)*8 + sizeof(GLuint)+ sizeof(glm::mat4);//hairParams
+    uboSizes[2] = sizeof(glm::mat4)*4;
+    uboSizes[3] = sizeof(GLint) + sizeof(GLfloat);
 
-    glBufferData(GL_UNIFORM_BUFFER, uboSizes[0] + uboSizes[1] + uboSizes[2], 0, GL_DYNAMIC_COPY);
+    GLsizei totalBufferSize = 0; 
+    for(int i = 0; i < 4; ++i)
+    {
+        totalBufferSize += uboSizes[i];
+    }
+    std::cout << "total UBO size = " << totalBufferSize << std::endl;
+
+    glBufferData(GL_UNIFORM_BUFFER, totalBufferSize, 0, GL_DYNAMIC_COPY);
 
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     size_t uboOffset = 0;
     //glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo[0], 0, uboSizes[0]+uboSizes[1]);
+    //matrices
     glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo[0], uboOffset, uboSizes[0]);
     uboOffset += uboSizes[0];
+    //tessLevels
     glBindBufferRange(GL_UNIFORM_BUFFER, 1, ubo[0], uboOffset, uboSizes[1]);
     uboOffset += uboSizes[1];
+    //hairParams
     glBindBufferRange(GL_UNIFORM_BUFFER, 2, ubo[0], uboOffset, uboSizes[2]);
+    uboOffset += uboSizes[2];
+    //furColorParams
+    glBindBufferRange(GL_UNIFORM_BUFFER, 3, ubo[0], uboOffset, uboSizes[3]);
 
     //GLuint uniformBlockIndex;
     //GLsizei uniformBlockSize;
@@ -952,6 +969,11 @@ void updateUniforms()
     glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 1 * sizeof(GLfloat), sizeof(GLfloat), &hairDetail);
     glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 2 * sizeof(GLfloat), sizeof(GLfloat), &hairCurveAngle);
     glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 3 * sizeof(GLfloat), sizeof(GLuint), &hairCount);
+
+    //furColorParams
+    uboOffset += uboSizes[2];
+    glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 0 * sizeof(GLint), sizeof(GLfloat), &enableFurColor);
+    glBufferSubData(GL_UNIFORM_BUFFER, uboOffset + 1 * sizeof(GLint), sizeof(GLfloat), &furColorPerlinParam);
 
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
@@ -1321,6 +1343,20 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
         wireframeMode = !wireframeMode;
+    }
+    else if (key == GLFW_KEY_0 && action == GLFW_PRESS)//fur colors
+    {
+        enableFurColor = !enableFurColor;
+        std::cout << "colors: " << enableFurColor << std::endl;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_8) == GLFW_PRESS)
+    {
+        furColorPerlinParam -= 0.08;
+    }
+    else if (glfwGetKey(window, GLFW_KEY_9) == GLFW_PRESS)
+    {
+        furColorPerlinParam += 0.08;
     }
 
     const float cameraSensitivity = 11.65f; // adjust accordingly
